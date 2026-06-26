@@ -40,7 +40,7 @@ export const etdView = `<div class="page" id="etd-app-wrap">
       
       <div class="form-field full">
         <label>Destination</label>
-        <select id="destination">
+        <select id="destination" onchange="onEtdDestinationChange()">
           <option value="LBG">PMC Lubuk Gaung (LBG)</option>
           <option value="TJP">EUP Tanjung Pura (TJP)</option>
           <option value="BTG">EUP Bontang (BTG)</option>
@@ -51,17 +51,17 @@ export const etdView = `<div class="page" id="etd-app-wrap">
 
       <div class="form-field">
         <label>Trucking Distance (km)</label>
-        <input type="number" id="dist_truck" placeholder="Insert Trucking Distance" step="0.01" min="0" oninput="updateModeHint()"/>
+        <input type="text" id="dist_truck" placeholder="e.g. 839" inputmode="decimal" oninput="updateModeHint()"/>
       </div>
       
       <div class="form-field">
         <label>Vessel Distance 1 (km)</label>
-        <input type="number" id="dist_vessel" placeholder="Insert Vessel Distance 1" step="0.01" min="0" oninput="updateModeHint()"/>
+        <input type="text" id="dist_vessel" placeholder="Excel TPG: 13273.28 atau 13273,28" inputmode="decimal" oninput="updateModeHint()"/>
       </div>
 
       <div class="form-field full">
         <label>Vessel Distance 2 — Bulking (km) <span style="font-weight:400;color:var(--text3)">Fill in if there is a 2-leg vessel route</span></label>
-        <input type="number" id="dist_vessel2" placeholder="Insert Vessel Distance 2 (Optional)" step="0.01" min="0" oninput="updateModeHint()"/>
+        <input type="text" id="dist_vessel2" placeholder="Optional — e.g. 5000" inputmode="decimal" oninput="updateModeHint()"/>
       </div>
     </div>
 
@@ -122,19 +122,29 @@ export const etdView = `<div class="page" id="etd-app-wrap">
   </div><!-- end etd-inner -->
 
   <div class="modal-overlay" id="factorModal">
-  <div class="modal-box">
-    <div class="modal-title">Edit Emission Factors</div>
-    <div class="modal-field">
-      <label>Allocation Factor (AF) - <span id="modal-dest-label"></span></label>
-      <input type="number" id="modal-af-input" step="0.00001" min="0" max="1"/>
-    </div>
-    <div class="modal-field">
-      <label>Fossil Factor (FF) - <span id="modal-dest-label2"></span></label>
-      <input type="number" id="modal-ff-input" step="0.00001" min="0"/>
+  <div class="modal-box modal-box-wide">
+    <div class="modal-title">Edit Emission Factors — <span id="modal-dest-label"></span></div>
+    <p class="modal-sub">Disimpan ke Google Sheets (tab <strong>ETD Factors</strong>) per site. Klik Save lalu Calculate ulang.</p>
+    <div class="modal-scroll">
+      <div class="modal-field-grid">
+        <div class="modal-field"><label>η truck</label><input type="number" id="modal-h-truck" step="0.00001" min="0"/></div>
+        <div class="modal-field"><label>η vessel</label><input type="number" id="modal-h-vessel" step="0.00001" min="0"/></div>
+        <div class="modal-field"><label>η vessel Export (TPG biodiesel)</label><input type="number" id="modal-h-vessel-export" step="0.00001" min="0"/></div>
+        <div class="modal-field"><label>EF_B10</label><input type="text" id="modal-ef-b10" inputmode="decimal"/></div>
+        <div class="modal-field"><label>EF_B40</label><input type="text" id="modal-ef-b40" inputmode="decimal"/></div>
+        <div class="modal-field"><label>EF_HFO</label><input type="text" id="modal-ef-hfo" inputmode="decimal"/></div>
+        <div class="modal-field"><label>Mm/Md RPOME</label><input type="text" id="modal-mm-pome" inputmode="decimal"/></div>
+        <div class="modal-field"><label>Mm/Md Biodiesel</label><input type="text" id="modal-mm-biodiesel" inputmode="decimal"/></div>
+        <div class="modal-field"><label>FF Biodiesel</label><input type="text" id="modal-ff-biodiesel" inputmode="decimal"/></div>
+        <div class="modal-field"><label>AF Biodiesel</label><input type="text" id="modal-af-biodiesel" inputmode="decimal"/></div>
+        <div class="modal-field"><label>FF (<span id="modal-dest-code"></span>)</label><input type="text" id="modal-ff-input" inputmode="decimal"/></div>
+        <div class="modal-field"><label>AF (<span id="modal-dest-code2"></span>)</label><input type="text" id="modal-af-input" inputmode="decimal"/></div>
+      </div>
     </div>
     <div class="modal-buttons">
-      <button class="modal-btn cancel" onclick="closeFactorModal()">Cancel</button>
-      <button class="modal-btn save" onclick="saveFactors()">Save</button>
+      <button type="button" class="modal-btn cancel" onclick="resetEtdSiteFactors()">Reset default</button>
+      <button type="button" class="modal-btn cancel" onclick="closeFactorModal()">Cancel</button>
+      <button type="button" class="modal-btn save" onclick="saveFactors()">Save</button>
     </div>
   </div>
    </div>

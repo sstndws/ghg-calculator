@@ -1133,6 +1133,56 @@ hr { border: none; border-top: 1px solid #f3f4f6; margin: 8px 0; }
     width: 90%;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   }
+  #factorModal .modal-box-wide {
+    max-width: 520px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #factorModal .modal-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin: -0.5rem 0 1rem;
+  }
+  #factorModal .modal-scroll {
+    overflow-y: auto;
+    max-height: 52vh;
+    margin-bottom: 0.5rem;
+  }
+  #factorModal .modal-field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+  }
+  .etd-shell .factors-edit-row {
+    grid-column: 1 / -1;
+    margin-bottom: 0.25rem;
+  }
+  .etd-shell .factors-action-row {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .etd-shell .etd-factors-save-btn {
+    background: #111827;
+    color: #fff;
+    border: none;
+    font-weight: 600;
+  }
+  .etd-shell .etd-factors-save-btn:hover { opacity: 0.92; }
+  .etd-shell .etd-factors-save-btn:disabled { opacity: 0.55; }
+  .etd-shell .factors-save-hint {
+    grid-column: 1 / -1;
+    margin: 6px 0 0;
+    font-size: 11px;
+    color: var(--text3);
+    line-height: 1.45;
+  }
   #factorModal .modal-title {
     font-size: 18px;
     font-weight: 700;

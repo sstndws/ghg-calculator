@@ -1,15 +1,231 @@
 /* ETD — RPOME calculator + results */
 /* ETD — RPOME (ETD BENER.html logic; etdCalculate renamed to avoid clash with main calculate) */
 
-// === CONSTANTS (from Excel DATA sheet) ===
-const h_truck = 0.87;
-const h_vessel = 0.12;
+// === CONSTANTS (from Excel Breakdown GHG TPG Oil & Gas — full precision) ===
+var etdSiteFactorsCache_ = {};
+
+function etdGlobalDefaults_() {
+  return {
+    h_truck: 0.87,
+    h_vessel: 0.12,
+    h_vessel_export: 0.1,
+    EF_B10: 95.1 / 1000 * 0.9,
+    EF_B40: 95.1 / 1000 * 0.6,
+    EF_HFO: 94.2 / 1000,
+    MmPOME: 1.015228,
+    Mm_Biodiesel: 0.5,
+    FF_Biodiesel: 0.97084002153713655,
+    AF_Biodiesel: 1.0557176687628049
+  };
+}
+
+/** Format factor for input/display without rounding away Excel precision. */
+function etdFactorStr_(v) {
+  if (v === null || v === undefined || !Number.isFinite(Number(v))) return '';
+  return String(Number(v));
+}
+
+/** Format factor inside formula text (trim trailing zeros, keep precision). */
+function etdFactorPrec_(v, maxDp) {
+  if (!Number.isFinite(v)) return '—';
+  var dp = maxDp != null ? maxDp : 10;
+  var s = Number(v).toFixed(dp);
+  return s.replace(/\.?0+$/, '') || '0';
+}
+
+function etdSheetsUrl_(params) {
+  var base = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : '';
+  var token = (typeof APPS_TOKEN !== 'undefined') ? APPS_TOKEN : '';
+  var q = ['token=' + encodeURIComponent(token)];
+  if (params) {
+    Object.keys(params).forEach(function(k) {
+      if (params[k] != null && params[k] !== '') q.push(k + '=' + encodeURIComponent(params[k]));
+    });
+  }
+  return base + '?' + q.join('&');
+}
+
+function applyEtdFactorsRow_(row) {
+  if (!row || !row.siteCode) return;
+  var code = String(row.siteCode).toUpperCase();
+  var g = etdGlobalDefaults_();
+  var d = DEST[code] || {};
+  var item = Object.assign({}, g, { FF: d.FF, AF: d.AF, Ep: d.Ep });
+  ['h_truck', 'h_vessel', 'h_vessel_export', 'EF_B10', 'EF_B40', 'EF_HFO', 'MmPOME', 'Mm_Biodiesel', 'FF_Biodiesel', 'AF_Biodiesel', 'FF', 'AF', 'Ep'].forEach(function(k) {
+    var v = row[k];
+    if (v !== '' && v != null && Number.isFinite(Number(v))) item[k] = Number(v);
+  });
+  etdSiteFactorsCache_[code] = item;
+  if (DEST[code]) {
+    if (Number.isFinite(item.FF)) DEST[code].FF = item.FF;
+    if (Number.isFinite(item.AF)) DEST[code].AF = item.AF;
+    if (Number.isFinite(item.Ep)) DEST[code].Ep = item.Ep;
+  }
+}
+
+function fetchEtdFactorsFromSheets(siteCode) {
+  var params = { action: 'getEtdFactors' };
+  if (siteCode) params.siteCode = siteCode;
+  return fetch(etdSheetsUrl_(params), { method: 'GET' })
+    .then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function(data) {
+      var rows = Array.isArray(data) ? data : (data && data.rows) || [];
+      rows.forEach(applyEtdFactorsRow_);
+      return rows;
+    });
+}
+
+function getEtdFactors(dest) {
+  var g = etdGlobalDefaults_();
+  var d = DEST[dest] || {};
+  var saved = etdSiteFactorsCache_[dest] || {};
+  var merged = Object.assign({}, g, { FF: d.FF, AF: d.AF, Ep: d.Ep }, saved);
+  Object.keys(merged).forEach(function(k) {
+    if (!Number.isFinite(merged[k])) merged[k] = g[k] != null ? g[k] : merged[k];
+  });
+  return merged;
+}
+
+function saveEtdSiteFactorsToSheets(dest, patch, optReset) {
+  var payload = {
+    action: 'saveEtdFactors',
+    token: (typeof APPS_TOKEN !== 'undefined') ? APPS_TOKEN : '',
+    siteCode: dest,
+    reset: optReset === true
+  };
+  if (!optReset) payload.factors = patch;
+  return fetch((typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : '', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  })
+    .then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function(result) {
+      if (result.status !== 'ok') throw new Error(result.message || 'Save failed');
+      if (optReset) delete etdSiteFactorsCache_[dest];
+      else etdSiteFactorsCache_[dest] = Object.assign({}, etdSiteFactorsCache_[dest] || {}, patch);
+      if (patch.FF != null) DEST[dest].FF = patch.FF;
+      if (patch.AF != null) DEST[dest].AF = patch.AF;
+      return result;
+    });
+}
+
+function resetEtdSiteFactorsFor_(dest) {
+  if (DEST_DEFAULTS[dest] && DEST[dest]) {
+    DEST[dest].FF = DEST_DEFAULTS[dest].FF;
+    DEST[dest].AF = DEST_DEFAULTS[dest].AF;
+    DEST[dest].Ep = DEST_DEFAULTS[dest].Ep;
+  }
+  delete etdSiteFactorsCache_[dest];
+}
+
+const h_truck = etdGlobalDefaults_().h_truck;
+const h_vessel = etdGlobalDefaults_().h_vessel;
 const EF_Diesel = 0.0951;
-const EF_B40 = EF_Diesel * 0.6; // 0.05706
-const EF_B10 = EF_Diesel * 0.9; // 0.08559
-const EF_HFO = 0.0942;
-const MmPOME = 1.015228426395939;
+const EF_B40 = etdGlobalDefaults_().EF_B40;
+const EF_B10 = etdGlobalDefaults_().EF_B10;
+const EF_HFO = etdGlobalDefaults_().EF_HFO;
+const MmPOME = etdGlobalDefaults_().MmPOME;
 const MmRPOME = 1.000300090027008;
+
+/** Parse distance — supports 13273, 13,273 (thousands), 13.273 (decimal). */
+function etdParseDistance(raw) {
+  if (raw === null || raw === undefined) return NaN;
+  var s = String(raw).trim().replace(/\s/g, '');
+  if (!s) return NaN;
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) {
+    s = s.replace(/,/g, '');
+  } else if (/^\d+,\d+$/.test(s) && s.indexOf('.') === -1) {
+    var parts = s.split(',');
+    if (parts[1].length === 3 && parts[0].length <= 4) s = parts.join('');
+    else s = s.replace(',', '.');
+  }
+  var n = parseFloat(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function resetEtdSiteFactors() {
+  if (!currentDest) return;
+  persistEtdFactors_(currentDest, {}, true, function(err) {
+    if (err) {
+      showToast('Reset failed: ' + err.message, 'error');
+      return;
+    }
+    resetEtdSiteFactorsFor_(currentDest);
+    fetchEtdFactorsFromSheets(currentDest).then(function() {
+      populateFactorModal_();
+      showToast('Factors reset in Sheets — ' + (DEST[currentDest] || {}).label, 'success');
+      if (document.getElementById('results').style.display === 'block') etdCalculate();
+    });
+  });
+}
+
+function onEtdDestinationChange() {
+  var dest = document.getElementById('destination').value;
+  currentDest = dest;
+  fetchEtdFactorsFromSheets(dest).catch(function() {});
+}
+
+function populateFactorModal_() {
+  var d = DEST[currentDest];
+  if (!d) return;
+  var F = getEtdFactors(currentDest);
+  document.getElementById('modal-dest-label').textContent = d.label;
+  document.getElementById('modal-dest-code').textContent = currentDest;
+  document.getElementById('modal-dest-code2').textContent = currentDest;
+  document.getElementById('modal-h-truck').value = etdFactorStr_(F.h_truck);
+  document.getElementById('modal-h-vessel').value = etdFactorStr_(F.h_vessel);
+  document.getElementById('modal-h-vessel-export').value = etdFactorStr_(F.h_vessel_export);
+  document.getElementById('modal-ef-b10').value = etdFactorStr_(F.EF_B10);
+  document.getElementById('modal-ef-b40').value = etdFactorStr_(F.EF_B40);
+  document.getElementById('modal-ef-hfo').value = etdFactorStr_(F.EF_HFO);
+  document.getElementById('modal-mm-pome').value = etdFactorStr_(F.MmPOME);
+  document.getElementById('modal-mm-biodiesel').value = etdFactorStr_(F.Mm_Biodiesel);
+  document.getElementById('modal-ff-biodiesel').value = etdFactorStr_(F.FF_Biodiesel);
+  document.getElementById('modal-af-biodiesel').value = etdFactorStr_(F.AF_Biodiesel);
+  document.getElementById('modal-af-input').value = etdFactorStr_(F.AF);
+  document.getElementById('modal-ff-input').value = etdFactorStr_(F.FF);
+}
+
+/** TPG vessel-only = Excel row B38 biodiesel export (Distance to Huelva). */
+function isTpgBiodieselExport_(dest, hasTruck, hasVessel1, hasVessel2) {
+  return dest === 'TPG' && !hasTruck && (hasVessel1 || hasVessel2);
+}
+
+function calcTpgBiodieselExportEtd_(dist, F) {
+  return dist * F.h_vessel_export * F.EF_HFO * F.Mm_Biodiesel * F.FF_Biodiesel * F.AF_Biodiesel;
+}
+
+/** Excel B38 — TPG Oil & gas → Huelva (cell C38). */
+const TPG_BIODIESEL_EXPORT_DISTANCE_EXCEL = 13273.28;
+
+function etdDistFmt(d) {
+  if (!Number.isFinite(d)) return '—';
+  if (Math.abs(d - Math.round(d)) < 1e-9) return String(Math.round(d));
+  return etdFactorPrec_(d, 2);
+}
+
+function applyTpgExcelExportDistance_() {
+  var el = document.getElementById('dist_vessel');
+  if (!el) return;
+  el.value = String(TPG_BIODIESEL_EXPORT_DISTANCE_EXCEL);
+  updateModeHint();
+  if (document.getElementById('results').style.display === 'block') etdCalculate();
+}
+
+/** 3 dp — matches Excel Breakdown GHG Calculation display (e.g. 63.426, 68.657). */
+function etdFmt(v) {
+  if (v === null || v === undefined || Number.isNaN(v)) return 'N/A';
+  return Number(v).toFixed(3);
+}
 
 // GLM-specific constants (from Excel GLM!L21 and L22)
 const GLM_L21 = 0.7312246559398706;
@@ -48,6 +264,8 @@ const DEST = {
     AF: 0.80717
   }
 };
+
+const DEST_DEFAULTS = JSON.parse(JSON.stringify(DEST));
 
 // Vessel emission constants (pre-calculated from Excel)
 const C23 = 6.508861802539543;  // LBG→TJP vessel (POME to RPOME)
@@ -91,7 +309,7 @@ function etdDom(id) {
 function etdStatCardHtml(label, value, highlight) {
   return '<div class="stat-card' + (highlight ? ' highlight' : '') + '">'
     + '<div class="stat-label">' + label + '</div>'
-    + '<div class="stat-value">' + value.toFixed(2) + '</div>'
+    + '<div class="stat-value">' + etdFmt(value) + '</div>'
     + '<div class="stat-unit">kgCO₂e/dry-t</div>'
     + '</div>';
 }
@@ -101,15 +319,15 @@ function etdBreakdownRowHtml(row) {
     + '<td><div class="td-name">' + row.name + '</div><div class="td-formula">' + row.formula + '</div></td>'
     + '<td></td>'
     + '<td class="' + (row.val === null ? 'td-val na' : 'td-val') + '">'
-    + (row.val === null ? 'N/A' : row.val.toFixed(2))
+    + (row.val === null ? 'N/A' : etdFmt(row.val))
     + '</td></tr>';
 }
 
 function etdFobCardHtml(label, val, ep, primary) {
   return '<div class="fob-card ' + (primary ? 'primary' : '') + '">'
     + '<div class="fob-label">' + label + '</div>'
-    + '<div class="fob-value">' + val.toFixed(2) + '</div>'
-    + '<div class="fob-breakdown">Ep ' + ep.toFixed(2) + ' + Etd ' + (val - ep).toFixed(2) + '</div>'
+    + '<div class="fob-value">' + etdFmt(val) + '</div>'
+    + '<div class="fob-breakdown">Ep ' + etdFmt(ep) + ' + Etd ' + etdFmt(val - ep) + '</div>'
     + '</div>';
 }
 
@@ -131,9 +349,9 @@ function updateModeHint() {
   var vessel2El = etdDom('dist_vessel2');
   var hint = etdDom('mode-hint');
   if (!truckEl || !vesselEl || !vessel2El || !hint) return;
-  const dt  = parseFloat(truckEl.value);
-  const dv1 = parseFloat(vesselEl.value);
-  const dv2 = parseFloat(vessel2El.value);
+  const dt  = etdParseDistance(truckEl.value);
+  const dv1 = etdParseDistance(vesselEl.value);
+  const dv2 = etdParseDistance(vessel2El.value);
   const hasTruck   = !isNaN(dt)  && dt  > 0;
   const hasVessel1 = !isNaN(dv1) && dv1 > 0;
   const hasVessel2 = !isNaN(dv2) && dv2 > 0;
@@ -152,41 +370,122 @@ function updateModeHint() {
     hint.className = 'mode-hint trucking';
     hint.innerHTML = 'Mode: <strong>Direct Trucking</strong> — ' + dt + ' km';
   } else {
+    var destEl = document.getElementById('destination');
+    var isTpgExportHint = destEl && destEl.value === 'TPG';
     hint.className = 'mode-hint vessel';
-    hint.innerHTML = 'Mode: <strong>Direct Vessel</strong> — ' + dv1 + ' km';
+    hint.innerHTML = 'Mode: <strong>' + (isTpgExportHint ? 'Biodiesel Export (Vessel)' : 'Direct Vessel') + '</strong> — ' + etdDistFmt(dv1) + ' km'
+      + (isTpgExportHint
+        ? ' &nbsp;·&nbsp; Excel pakai <strong>13273,28</strong> km → 64,076'
+          + ' <button type="button" class="btn btn-outline btn-sm" style="margin-left:6px;padding:2px 8px;font-size:11px" onclick="applyTpgExcelExportDistance_()">Pakai jarak Excel</button>'
+        : '');
   }
 }
 
 function openFactorModal(dest) {
-  currentDest = dest;
-  const d = DEST[dest];
-  document.getElementById('modal-dest-label').textContent = d.label;
-  document.getElementById('modal-dest-label2').textContent = d.label;
-  document.getElementById('modal-af-input').value = d.AF;
-  document.getElementById('modal-ff-input').value = d.FF;
-  document.getElementById('factorModal').classList.add('active');
+  currentDest = dest || document.getElementById('destination').value;
+  if (!DEST[currentDest]) return;
+  var modal = document.getElementById('factorModal');
+  populateFactorModal_();
+  modal.classList.add('active');
+  fetchEtdFactorsFromSheets(currentDest)
+    .then(function() { populateFactorModal_(); })
+    .catch(function() {});
 }
 
 function closeFactorModal() {
   document.getElementById('factorModal').classList.remove('active');
 }
 
+function readFactorModalPatch_() {
+  var patch = {
+    h_truck: parseFloat(document.getElementById('modal-h-truck').value),
+    h_vessel: parseFloat(document.getElementById('modal-h-vessel').value),
+    h_vessel_export: parseFloat(document.getElementById('modal-h-vessel-export').value),
+    EF_B10: parseFloat(document.getElementById('modal-ef-b10').value),
+    EF_B40: parseFloat(document.getElementById('modal-ef-b40').value),
+    EF_HFO: parseFloat(document.getElementById('modal-ef-hfo').value),
+    MmPOME: parseFloat(document.getElementById('modal-mm-pome').value),
+    Mm_Biodiesel: parseFloat(document.getElementById('modal-mm-biodiesel').value),
+    FF_Biodiesel: parseFloat(document.getElementById('modal-ff-biodiesel').value),
+    AF_Biodiesel: parseFloat(document.getElementById('modal-af-biodiesel').value),
+    AF: parseFloat(document.getElementById('modal-af-input').value),
+    FF: parseFloat(document.getElementById('modal-ff-input').value)
+  };
+  Object.keys(patch).forEach(function(k) {
+    if (!Number.isFinite(patch[k])) delete patch[k];
+  });
+  if (patch.AF != null && (patch.AF < 0 || patch.AF > 1)) delete patch.AF;
+  return patch;
+}
+
+function persistEtdFactors_(dest, patch, optReset, onDone) {
+  var saveBtn = document.getElementById('etd-factors-save-btn');
+  var modalSaveBtn = document.querySelector('#factorModal .modal-btn.save');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Menyimpan…'; }
+  if (modalSaveBtn) { modalSaveBtn.disabled = true; modalSaveBtn.textContent = 'Saving…'; }
+
+  saveEtdSiteFactorsToSheets(dest, patch, optReset)
+    .then(function() { return fetchEtdFactorsFromSheets(dest); })
+    .then(function() {
+      if (typeof onDone === 'function') onDone(null);
+    })
+    .catch(function(err) {
+      var msg = err && err.message ? err.message : String(err);
+      if (/failed|fetch|HTTP|Network/i.test(msg)) {
+        msg += ' — pastikan Apps Script sudah di-update & redeploy (jalankan setupEtdFactorsSheet).';
+      }
+      if (typeof onDone === 'function') onDone(new Error(msg));
+    })
+    .finally(function() {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Simpan ke Sheets'; }
+      if (modalSaveBtn) { modalSaveBtn.disabled = false; modalSaveBtn.textContent = 'Save'; }
+    });
+}
+
 function saveFactors() {
-  const newAF = parseFloat(document.getElementById('modal-af-input').value);
-  const newFF = parseFloat(document.getElementById('modal-ff-input').value);
-  
-  if (!isNaN(newAF) && newAF >= 0 && newAF <= 1) {
-    DEST[currentDest].AF = newAF;
+  if (!currentDest) currentDest = document.getElementById('destination').value;
+  var patch = readFactorModalPatch_();
+  persistEtdFactors_(currentDest, patch, false, function(err) {
+    if (err) {
+      showToast('Save to Sheets failed: ' + err.message, 'error');
+      return;
+    }
+    closeFactorModal();
+    showToast('Factors saved to Sheets — ' + DEST[currentDest].label, 'success');
+    if (document.getElementById('results').style.display === 'block') etdCalculate();
+  });
+}
+
+/** Save dari panel hasil (bawah faktor) — baca modal jika terbuka, else nilai aktif. */
+function saveEtdFactorsQuick_(dest) {
+  dest = dest || currentDest || (document.getElementById('destination') || {}).value;
+  if (!dest || !DEST[dest]) {
+    showToast('Pilih destination dulu', 'error');
+    return;
   }
-  if (!isNaN(newFF) && newFF >= 0) {
-    DEST[currentDest].FF = newFF;
+  currentDest = dest;
+  var modal = document.getElementById('factorModal');
+  var patch;
+  if (modal && modal.classList.contains('active')) {
+    patch = readFactorModalPatch_();
+  } else {
+    var F = getEtdFactors(dest);
+    patch = {
+      h_truck: F.h_truck, h_vessel: F.h_vessel, h_vessel_export: F.h_vessel_export,
+      EF_B10: F.EF_B10, EF_B40: F.EF_B40, EF_HFO: F.EF_HFO,
+      MmPOME: F.MmPOME, Mm_Biodiesel: F.Mm_Biodiesel,
+      FF_Biodiesel: F.FF_Biodiesel, AF_Biodiesel: F.AF_Biodiesel,
+      FF: F.FF, AF: F.AF
+    };
   }
-  
-  closeFactorModal();
-  // Recalculate if results are shown
-  if (document.getElementById('results').style.display === 'block') {
-    etdCalculate();
-  }
+  persistEtdFactors_(dest, patch, false, function(err) {
+    if (err) {
+      showToast(err.message, 'error');
+      return;
+    }
+    showToast('Rumus tersimpan ke Sheets (ETD Factors) — ' + DEST[dest].label, 'success');
+    if (document.getElementById('results').style.display === 'block') etdCalculate();
+  });
 }
 
 function etdCalculateGgl() {
@@ -399,9 +698,9 @@ function etdCalculate() {
   }
   const supplier = document.getElementById('supplier').value.trim() || '—';
   const dest    = document.getElementById('destination').value;
-  const dtRaw   = parseFloat(document.getElementById('dist_truck').value);
-  const dv1Raw  = parseFloat(document.getElementById('dist_vessel').value);
-  const dv2Raw  = parseFloat(document.getElementById('dist_vessel2').value);
+  const dtRaw   = etdParseDistance(document.getElementById('dist_truck').value);
+  const dv1Raw  = etdParseDistance(document.getElementById('dist_vessel').value);
+  const dv2Raw  = etdParseDistance(document.getElementById('dist_vessel2').value);
 
   const hasTruck   = !isNaN(dtRaw)  && dtRaw  > 0;
   const hasVessel1 = !isNaN(dv1Raw) && dv1Raw > 0;
@@ -416,49 +715,49 @@ function etdCalculate() {
   const dist_vessel1 = hasVessel1 ? dv1Raw : 0;
   const dist_vessel2 = hasVessel2 ? dv2Raw : 0;
 
+  const F = getEtdFactors(dest);
   const d = DEST[dest];
-  const {Ep, FF, AF} = d;
+  const Ep = F.Ep;
+  const FF = F.FF;
+  const AF = F.AF;
+  const isTpgExport = isTpgBiodieselExport_(dest, hasTruck, hasVessel1, hasVessel2);
 
-  // =====================================================
-  // PERBAIKAN RUMUS TPG DAN GLM
-  // TPG menggunakan EF_B10 (bukan EF_B40)
-  // GLM menambahkan GLM_L21 + GLM_L22
-  // =====================================================
-  
   let etd_truck_raw, etd_vessel1_raw, etd_vessel2_raw;
-  
-  if (dest === 'TPG') {
-    // TPG uses EF_B10 instead of EF_B40
-    etd_truck_raw   = hasTruck   ? dist_truck   * h_truck  * EF_B10 * MmPOME : 0;
-    etd_vessel1_raw = hasVessel1 ? dist_vessel1 * h_vessel * EF_HFO * MmPOME : 0;
-    etd_vessel2_raw = hasVessel2 ? dist_vessel2 * h_vessel * EF_HFO * MmPOME : 0;
+
+  if (isTpgExport) {
+    etd_truck_raw = 0;
+    etd_vessel1_raw = hasVessel1 ? calcTpgBiodieselExportEtd_(dist_vessel1, F) : 0;
+    etd_vessel2_raw = hasVessel2 ? calcTpgBiodieselExportEtd_(dist_vessel2, F) : 0;
+  } else if (dest === 'TPG') {
+    etd_truck_raw   = hasTruck   ? dist_truck   * F.h_truck  * F.EF_B10 * F.MmPOME : 0;
+    etd_vessel1_raw = hasVessel1 ? dist_vessel1 * F.h_vessel * F.EF_HFO * F.MmPOME : 0;
+    etd_vessel2_raw = hasVessel2 ? dist_vessel2 * F.h_vessel * F.EF_HFO * F.MmPOME : 0;
   } else if (dest === 'GLM') {
-    // GLM uses EF_B10 for truck and EF_HFO for vessel
-    etd_truck_raw   = hasTruck   ? dist_truck   * h_truck  * EF_B10 * MmPOME : 0;
-    etd_vessel1_raw = hasVessel1 ? dist_vessel1 * h_vessel * EF_HFO * MmPOME : 0;
-    etd_vessel2_raw = hasVessel2 ? dist_vessel2 * h_vessel * EF_HFO * MmPOME : 0;
+    etd_truck_raw   = hasTruck   ? dist_truck   * F.h_truck  * F.EF_B10 * F.MmPOME : 0;
+    etd_vessel1_raw = hasVessel1 ? dist_vessel1 * F.h_vessel * F.EF_HFO * F.MmPOME : 0;
+    etd_vessel2_raw = hasVessel2 ? dist_vessel2 * F.h_vessel * F.EF_HFO * F.MmPOME : 0;
   } else {
-    // LBG, TJP, BTG use EF_B40
-    etd_truck_raw   = hasTruck   ? dist_truck   * h_truck  * EF_B40 * MmPOME : 0;
-    etd_vessel1_raw = hasVessel1 ? dist_vessel1 * h_vessel * EF_B40 * MmPOME : 0;
-    etd_vessel2_raw = hasVessel2 ? dist_vessel2 * h_vessel * EF_B40 * MmPOME : 0;
+    etd_truck_raw   = hasTruck   ? dist_truck   * F.h_truck  * F.EF_B40 * F.MmPOME : 0;
+    etd_vessel1_raw = hasVessel1 ? dist_vessel1 * F.h_vessel * F.EF_B40 * F.MmPOME : 0;
+    etd_vessel2_raw = hasVessel2 ? dist_vessel2 * F.h_vessel * F.EF_B40 * F.MmPOME : 0;
   }
 
   const total_etd_raw = etd_truck_raw + etd_vessel1_raw + etd_vessel2_raw;
 
-  // =====================================================
-  // FORMULA N calculation
-  // =====================================================
   let N;
-  if (dest === 'BTG' && hasTruck && hasVessel1 && hasVessel2) {
-    const {FF: FF_LBG, AF: AF_LBG} = DEST['LBG'];
+  if (isTpgExport) {
+    N = total_etd_raw;
+  } else if (dest === 'BTG' && hasTruck && hasVessel1 && hasVessel2) {
+    const FF_LBG = getEtdFactors('LBG').FF;
+    const AF_LBG = getEtdFactors('LBG').AF;
     const truck_part   = etd_truck_raw   * FF * AF * MmRPOME;
     const vessel1_part = etd_vessel1_raw * FF_LBG * AF_LBG;
     const vessel2_part = etd_vessel2_raw * FF * AF;
     N = truck_part + vessel1_part + vessel2_part;
   } else if (dest === 'GLM') {
-    // GLM adds L21 + L22
     N = total_etd_raw * FF * AF * MmRPOME + GLM_L21 + GLM_L22;
+  } else if (dest === 'TPG') {
+    N = total_etd_raw * FF * AF;
   } else {
     N = total_etd_raw * FF * AF * MmRPOME;
   }
@@ -516,6 +815,8 @@ function etdCalculate() {
       dist_vessel1: dist_vessel1,
       dist_vessel2: dist_vessel2,
       total_etd_raw: total_etd_raw,
+      calcMode: isTpgExport ? 'tpg_biodiesel_export' : 'standard',
+      factors: Object.assign({}, F),
       N: N,
       Ep: Ep,
       R: R,
@@ -567,57 +868,77 @@ function etdCalculate() {
   } else if (hasTruck) {
     modeLabel = 'Direct Trucking';
     distLabel = `${dist_truck} km (truck)`;
+  } else if (isTpgExport) {
+    modeLabel = 'Biodiesel Export (Vessel)';
+    distLabel = etdDistFmt(dist_vessel1) + (hasVessel2 ? ' + ' + etdDistFmt(dist_vessel2) : '') + ' km (vessel export)';
   } else {
     modeLabel = 'Direct Vessel';
     distLabel = `${dist_vessel1} km (vessel)`;
   }
 
+  const vesselLabel = isTpgExport ? 'Etd Biodiesel — Vessel Export' : 'Etd POME — Vessel';
+  const vessel2Label = isTpgExport ? 'Etd Biodiesel — Vessel Export 2' : 'Etd POME — Vessel 2 (Bulking)';
+
   document.getElementById('r-supplier').textContent = supplier;
-  document.getElementById('r-meta').textContent = `${distLabel} · ${d.label} · ${modeLabel}`;
+  var metaText = distLabel + ' · ' + d.label + ' · ' + modeLabel;
+  if (isTpgExport && Math.abs(dist_vessel1 - 13273) < 0.01 && Math.abs(dist_vessel1 - TPG_BIODIESEL_EXPORT_DISTANCE_EXCEL) > 0.01) {
+    metaText += ' · Excel jarak 13273,28 km → ' + etdFmt(calcTpgBiodieselExportEtd_(TPG_BIODIESEL_EXPORT_DISTANCE_EXCEL, F));
+  }
+  document.getElementById('r-meta').textContent = metaText;
 
   const summaryHtml = ''
     + (hasTruck ? etdStatCardHtml('Etd POME Trucking', etd_truck_raw, false) : '')
-    + (hasVessel1 ? etdStatCardHtml('Etd POME Vessel' + (hasVessel2 ? ' 1' : ''), etd_vessel1_raw, false) : '')
-    + (hasVessel2 ? etdStatCardHtml('Etd POME Vessel 2', etd_vessel2_raw, false) : '')
+    + (hasVessel1 ? etdStatCardHtml(vesselLabel + (hasVessel2 ? ' 1' : ''), etd_vessel1_raw, false) : '')
+    + (hasVessel2 ? etdStatCardHtml(vessel2Label, etd_vessel2_raw, false) : '')
     + etdStatCardHtml('Ep Refinery', Ep, false)
-    + etdStatCardHtml('Etd FOB ' + dest, N, false)
+    + etdStatCardHtml(isTpgExport ? 'Etd Biodiesel' : 'Etd FOB ' + dest, N, false)
     + etdStatCardHtml('Total FOB ' + dest, R, true);
 
-  const EF_used = (dest === 'TPG' || dest === 'GLM') ? EF_B10 : EF_B40;
-  const EF_vessel_used = (dest === 'TPG' || dest === 'GLM') ? EF_HFO : EF_B40;
+  const EF_used = (dest === 'TPG' || dest === 'GLM') ? F.EF_B10 : F.EF_B40;
+  const EF_vessel_used = isTpgExport ? F.EF_HFO : ((dest === 'TPG' || dest === 'GLM') ? F.EF_HFO : F.EF_B40);
   const EF_label = (dest === 'TPG' || dest === 'GLM') ? 'EF_B10' : 'EF_B40';
-  const EF_vessel_label = (dest === 'TPG' || dest === 'GLM') ? 'EF_HFO' : 'EF_B40';
+  const EF_vessel_label = isTpgExport ? 'EF_HFO' : ((dest === 'TPG' || dest === 'GLM') ? 'EF_HFO' : 'EF_B40');
+  const h_vessel_used = isTpgExport ? F.h_vessel_export : F.h_vessel;
 
   const rows = [];
   if (hasTruck) rows.push({
     name: 'Etd POME — Trucking',
-    formula: `${dist_truck} km × η_truck(${h_truck}) × ${EF_label}(${EF_used.toFixed(5)}) × Mm_POME(${MmPOME.toFixed(6)})`,
+    formula: `${dist_truck} km × η_truck(${F.h_truck}) × ${EF_label}(${etdFactorPrec_(EF_used)}) × Mm/Md RPOME(${etdFactorPrec_(F.MmPOME)})`,
     val: etd_truck_raw
   });
   if (hasVessel1) rows.push({
-    name: `Etd POME — Vessel${hasVessel2 ? ' 1' : ''}`,
-    formula: `${dist_vessel1} km × η_vessel(${h_vessel}) × ${EF_vessel_label}(${EF_vessel_used.toFixed(5)}) × Mm_POME(${MmPOME.toFixed(6)})`,
+    name: `${vesselLabel}${hasVessel2 ? ' 1' : ''}`,
+    formula: isTpgExport
+      ? `${etdDistFmt(dist_vessel1)} km × η_export(${F.h_vessel_export}) × EF_HFO(${etdFactorPrec_(F.EF_HFO)}) × Mm/Md Bio(${etdFactorPrec_(F.Mm_Biodiesel)}) × FF(${etdFactorPrec_(F.FF_Biodiesel)}) × AF(${etdFactorPrec_(F.AF_Biodiesel)})`
+      : `${etdDistFmt(dist_vessel1)} km × η_vessel(${F.h_vessel}) × ${EF_vessel_label}(${etdFactorPrec_(EF_vessel_used)}) × Mm/Md RPOME(${etdFactorPrec_(F.MmPOME)})`,
     val: etd_vessel1_raw
   });
   if (hasVessel2) rows.push({
-    name: 'Etd POME — Vessel 2 (Bulking)',
-    formula: `${dist_vessel2} km × η_vessel(${h_vessel}) × ${EF_vessel_label}(${EF_vessel_used.toFixed(5)}) × Mm_POME(${MmPOME.toFixed(6)})`,
+    name: vessel2Label,
+    formula: isTpgExport
+      ? `${etdDistFmt(dist_vessel2)} km × η_export(${F.h_vessel_export}) × EF_HFO(${etdFactorPrec_(F.EF_HFO)}) × Mm/Md Bio(${etdFactorPrec_(F.Mm_Biodiesel)}) × FF(${etdFactorPrec_(F.FF_Biodiesel)}) × AF(${etdFactorPrec_(F.AF_Biodiesel)})`
+      : `${etdDistFmt(dist_vessel2)} km × η_vessel(${F.h_vessel}) × ${EF_vessel_label}(${etdFactorPrec_(EF_vessel_used)}) × Mm/Md RPOME(${etdFactorPrec_(F.MmPOME)})`,
     val: etd_vessel2_raw
   });
   rows.push({ name: 'Ep Refinery', formula: `Data CB — ${d.label}`, val: Ep });
   
   let nFormula;
-  if (dest === 'BTG' && hasTruck && hasVessel1 && hasVessel2) {
-    const {FF: FF_LBG, AF: AF_LBG} = DEST['LBG'];
-    nFormula = `truck×FF_BTG×AF_BTG×MmRPOME + vessel1×FF_LBG(${FF_LBG.toFixed(5)})×AF_LBG(${AF_LBG.toFixed(5)}) + vessel2×FF_BTG×AF_BTG`;
+  if (isTpgExport) {
+    nFormula = 'Etd Biodiesel export — direct (Excel D38)';
+  } else if (dest === 'BTG' && hasTruck && hasVessel1 && hasVessel2) {
+    const FF_LBG = getEtdFactors('LBG').FF;
+    const AF_LBG = getEtdFactors('LBG').AF;
+    nFormula = `truck×FF_BTG×AF_BTG×MmRPOME + vessel1×FF_LBG(${etdFactorPrec_(FF_LBG)})×AF_LBG(${etdFactorPrec_(AF_LBG)}) + vessel2×FF_BTG×AF_BTG`;
   } else if (dest === 'GLM') {
-    nFormula = `(${total_etd_raw.toFixed(4)}) × FF(${FF}) × AF(${AF}) × MmRPOME + L21(${GLM_L21.toFixed(4)}) + L22(${GLM_L22.toFixed(4)})`;
+    nFormula = `(${etdFmt(total_etd_raw)}) × FF(${FF}) × AF(${AF}) × MmRPOME + L21(${etdFmt(GLM_L21)}) + L22(${etdFmt(GLM_L22)})`;
+  } else if (dest === 'TPG') {
+    nFormula = `(${etdFmt(total_etd_raw)}) × FF(${FF}) × AF(${AF})`;
   } else {
-    nFormula = `(${total_etd_raw.toFixed(4)}) × FF(${FF}) × AF(${AF}) × MmRPOME`;
+    nFormula = `(${etdFmt(total_etd_raw)}) × FF(${FF}) × AF(${AF}) × MmRPOME`;
   }
   
   rows.push({
-    name: `Etd FOB ${dest} (N)`,
+    name: isTpgExport ? 'Etd Biodiesel (N)' : `Etd FOB ${dest} (N)`,
     formula: nFormula,
     val: N
   });
@@ -640,20 +961,22 @@ function etdCalculate() {
   const fobHtml = fobs.map(f => etdFobCardHtml(f.label, f.val, Ep, f.primary)).join('');
 
   const factorsHtml = `
-    ${hasTruck ? `<div class="factor-item"><span class="factor-key">η truck</span><span class="factor-val">${h_truck}</span></div>` : ''}
-    ${(hasVessel1||hasVessel2) ? `<div class="factor-item"><span class="factor-key">η vessel</span><span class="factor-val">${h_vessel}</span></div>` : ''}
-    <div class="factor-item"><span class="factor-key">${EF_label}</span><span class="factor-val">${EF_used.toFixed(5)}</span></div>
-    ${(hasVessel1||hasVessel2) ? `<div class="factor-item"><span class="factor-key">${EF_vessel_label}</span><span class="factor-val">${EF_vessel_used.toFixed(5)}</span></div>` : ''}
-    <div class="factor-item"><span class="factor-key">Mm POME</span><span class="factor-val">${MmPOME.toFixed(8)}</span></div>
-    <div class="factor-item"><span class="factor-key">Mm RPOME</span><span class="factor-val">${MmRPOME.toFixed(10)}</span></div>
-    <div class="factor-item">
-      <span class="factor-key">FF (${dest})</span>
-      <span class="factor-val editable" onclick="openFactorModal('${dest}')" title="Triple-click to edit">${FF}</span>
+    ${hasTruck ? `<div class="factor-item"><span class="factor-key">η truck</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${F.h_truck}</span></div>` : ''}
+    ${(hasVessel1||hasVessel2) ? `<div class="factor-item"><span class="factor-key">${isTpgExport ? 'η vessel Export' : 'η vessel'}</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${h_vessel_used}</span></div>` : ''}
+    ${!isTpgExport ? `<div class="factor-item"><span class="factor-key">${EF_label}</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${etdFactorPrec_(EF_used)}</span></div>` : ''}
+    ${(hasVessel1||hasVessel2) ? `<div class="factor-item"><span class="factor-key">${EF_vessel_label}</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${etdFactorPrec_(EF_vessel_used)}</span></div>` : ''}
+    ${!isTpgExport ? `<div class="factor-item"><span class="factor-key">Mm/Md RPOME</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${etdFactorPrec_(F.MmPOME)}</span></div>` : ''}
+    ${isTpgExport ? `<div class="factor-item"><span class="factor-key">Mm/Md Biodiesel</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${etdFactorPrec_(F.Mm_Biodiesel)}</span></div>` : ''}
+    ${isTpgExport ? `<div class="factor-item"><span class="factor-key">FF Biodiesel</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${etdFactorPrec_(F.FF_Biodiesel)}</span></div>` : ''}
+    ${isTpgExport ? `<div class="factor-item"><span class="factor-key">AF Biodiesel</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${etdFactorPrec_(F.AF_Biodiesel)}</span></div>` : ''}
+    ${!isTpgExport && dest !== 'TPG' ? `<div class="factor-item"><span class="factor-key">Mm RPOME</span><span class="factor-val">${etdFactorPrec_(MmRPOME)}</span></div>` : ''}
+    ${!isTpgExport ? `<div class="factor-item"><span class="factor-key">FF (${dest})</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${etdFactorPrec_(FF)}</span></div>` : ''}
+    ${!isTpgExport ? `<div class="factor-item"><span class="factor-key">AF (${dest})</span><span class="factor-val editable" onclick="openFactorModal('${dest}')">${etdFactorPrec_(AF)}</span></div>` : ''}
+    <div class="factors-action-row">
+      <button type="button" class="btn btn-outline btn-sm" onclick="openFactorModal('${dest}')">Edit faktor (${dest})</button>
+      <button type="button" id="etd-factors-save-btn" class="btn btn-primary btn-sm etd-factors-save-btn" onclick="saveEtdFactorsQuick_('${dest}')">Simpan ke Sheets</button>
     </div>
-    <div class="factor-item">
-      <span class="factor-key">AF (${dest})</span>
-      <span class="factor-val editable" onclick="openFactorModal('${dest}')" title="Triple-click to edit">${AF}</span>
-    </div>`;
+    <p class="factors-save-hint">Ubah nilai lewat <strong>Edit faktor</strong>, lalu klik <strong>Simpan ke Sheets</strong> (tab ETD Factors). Butuh Apps Script terbaru + redeploy.</p>`;
 
   paintEtdResultsView(function(id) { return document.getElementById(id); }, {
     supplier: supplier,
@@ -960,12 +1283,12 @@ function _buildEtdResultBlock(r) {
   out += '<div style="font-size:12px;color:#64748b;margin-bottom:14px">'+distLabel+' · '+escH(destLabel)+' · '+modeLabel+'</div>';
 
   out += '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">';
-  if (hasTruck) out += _etdStatCard('Etd POME Trucking', etd_truck_raw.toFixed(2), 'kgCO₂e/dry-t');
-  if (hasV1) out += _etdStatCard('Etd POME Vessel'+(hasV2?' 1':''), etd_v1_raw.toFixed(2), 'kgCO₂e/dry-t');
-  if (hasV2) out += _etdStatCard('Etd POME Vessel 2', etd_v2_raw.toFixed(2), 'kgCO₂e/dry-t');
-  out += _etdStatCard('Ep Refinery', Ep.toFixed(2), 'kgCO₂e/dry-t');
-  out += _etdStatCard('Etd FOB '+dest, N.toFixed(2), 'kgCO₂e/dry-t', true);
-  out += _etdStatCard('Total FOB '+dest, R.toFixed(2), 'kgCO₂e/dry-t');
+  if (hasTruck) out += _etdStatCard('Etd POME Trucking', etdFmt(etd_truck_raw), 'kgCO₂e/dry-t');
+  if (hasV1) out += _etdStatCard('Etd POME Vessel'+(hasV2?' 1':''), etdFmt(etd_v1_raw), 'kgCO₂e/dry-t');
+  if (hasV2) out += _etdStatCard('Etd POME Vessel 2', etdFmt(etd_v2_raw), 'kgCO₂e/dry-t');
+  out += _etdStatCard('Ep Refinery', etdFmt(Ep), 'kgCO₂e/dry-t');
+  out += _etdStatCard('Etd FOB '+dest, etdFmt(N), 'kgCO₂e/dry-t', true);
+  out += _etdStatCard('Total FOB '+dest, etdFmt(R), 'kgCO₂e/dry-t');
   out += '</div>';
 
   var th = 'style="background:#1e293b;color:#fff;padding:6px 12px;text-align:left;font-size:10px;font-weight:600;letter-spacing:0.3px"';
@@ -977,32 +1300,32 @@ function _buildEtdResultBlock(r) {
   out += '<thead><tr><th '+th+'>Komponen</th><th '+th+' style="text-align:right">Nilai</th></tr></thead><tbody>';
 
   if (hasTruck) {
-    out += '<tr><td '+td+'>Etd POME — Trucking</td><td '+tdv+'>'+etd_truck_raw.toFixed(2)+'</td></tr>';
-    out += '<tr><td colspan="2" '+tdf+'>'+dTruck+' km × η_truck('+h_truck+') × '+EF_label+'('+EF_used.toFixed(5)+') × Mm_POME('+MmPOME.toFixed(6)+')</td></tr>';
+    out += '<tr><td '+td+'>Etd POME — Trucking</td><td '+tdv+'>'+etdFmt(etd_truck_raw)+'</td></tr>';
+    out += '<tr><td colspan="2" '+tdf+'>'+dTruck+' km × η_truck('+h_truck+') × '+EF_label+'('+EF_used.toFixed(5)+') × Mm/Md RPOME('+MmPOME+')</td></tr>';
   }
   if (hasV1) {
-    out += '<tr><td '+td+'>Etd POME — Vessel'+(hasV2?' 1':'')+'</td><td '+tdv+'>'+etd_v1_raw.toFixed(2)+'</td></tr>';
-    out += '<tr><td colspan="2" '+tdf+'>'+dV1+' km × η_vessel('+h_vessel+') × '+EF_vessel_label+'('+EF_vessel_used.toFixed(5)+') × Mm_POME('+MmPOME.toFixed(6)+')</td></tr>';
+    out += '<tr><td '+td+'>Etd POME — Vessel'+(hasV2?' 1':'')+'</td><td '+tdv+'>'+etdFmt(etd_v1_raw)+'</td></tr>';
+    out += '<tr><td colspan="2" '+tdf+'>'+dV1+' km × η_vessel('+h_vessel+') × '+EF_vessel_label+'('+EF_vessel_used.toFixed(5)+') × Mm/Md RPOME('+MmPOME+')</td></tr>';
   }
   if (hasV2) {
-    out += '<tr><td '+td+'>Etd POME — Vessel 2</td><td '+tdv+'>'+etd_v2_raw.toFixed(2)+'</td></tr>';
-    out += '<tr><td colspan="2" '+tdf+'>'+dV2+' km × η_vessel('+h_vessel+') × '+EF_vessel_label+'('+EF_vessel_used.toFixed(5)+') × Mm_POME('+MmPOME.toFixed(6)+')</td></tr>';
+    out += '<tr><td '+td+'>Etd POME — Vessel 2</td><td '+tdv+'>'+etdFmt(etd_v2_raw)+'</td></tr>';
+    out += '<tr><td colspan="2" '+tdf+'>'+dV2+' km × η_vessel('+h_vessel+') × '+EF_vessel_label+'('+EF_vessel_used.toFixed(5)+') × Mm/Md RPOME('+MmPOME+')</td></tr>';
   }
-  out += '<tr><td '+td+'>Ep Refinery</td><td '+tdv+'>'+Ep.toFixed(2)+'</td></tr>';
+  out += '<tr><td '+td+'>Ep Refinery</td><td '+tdv+'>'+etdFmt(Ep)+'</td></tr>';
   out += '<tr><td colspan="2" '+tdf+'>Data CB — '+escH(destLabel)+'</td></tr>';
-  out += '<tr><td '+td+'>Etd FOB '+dest+' (N)</td><td '+tdv+'>'+N.toFixed(2)+'</td></tr>';
+  out += '<tr><td '+td+'>Etd FOB '+dest+' (N)</td><td '+tdv+'>'+etdFmt(N)+'</td></tr>';
   if (S !== null) {
-    out += '<tr><td '+td+'>Etd FOB Tj. Langsat (O)</td><td '+tdv+'>'+(dest==='TPG' ? N.toFixed(2) : S !== null ? (S - Ep).toFixed(2) : 'N/A')+'</td></tr>';
+    out += '<tr><td '+td+'>Etd FOB Tj. Langsat (O)</td><td '+tdv+'>'+(dest==='TPG' ? etdFmt(N) : S !== null ? etdFmt(S - Ep) : 'N/A')+'</td></tr>';
   }
   if (T !== null) {
-    out += '<tr><td '+td+'>Etd FOB Port Klang (P)</td><td '+tdv+'>'+(dest==='GLM' ? N.toFixed(2) : T !== null ? (T - Ep).toFixed(2) : 'N/A')+'</td></tr>';
+    out += '<tr><td '+td+'>Etd FOB Port Klang (P)</td><td '+tdv+'>'+(dest==='GLM' ? etdFmt(N) : T !== null ? etdFmt(T - Ep) : 'N/A')+'</td></tr>';
   }
   out += '</tbody></table></div>';
 
   out += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px">';
-  out += _etdFobCard('FOB '+destLabel, R.toFixed(2), true);
-  if (S !== null && dest !== 'TPG') out += _etdFobCard('FOB Tj. Langsat', S.toFixed(2), false);
-  if (T !== null && dest !== 'GLM') out += _etdFobCard('FOB Port Klang', T.toFixed(2), false);
+  out += _etdFobCard('FOB '+destLabel, etdFmt(R), true);
+  if (S !== null && dest !== 'TPG') out += _etdFobCard('FOB Tj. Langsat', etdFmt(S), false);
+  if (T !== null && dest !== 'GLM') out += _etdFobCard('FOB Port Klang', etdFmt(T), false);
   out += '</div>';
 
   var FF = d.FF || 0;
@@ -1012,8 +1335,8 @@ function _buildEtdResultBlock(r) {
   if (hasV1||hasV2) out += '<div><span style="color:#6b7280">η vessel</span> <b>'+h_vessel+'</b></div>';
   out += '<div><span style="color:#6b7280">'+EF_label+'</span> <b>'+EF_used.toFixed(5)+'</b></div>';
   if (hasV1||hasV2) out += '<div><span style="color:#6b7280">'+EF_vessel_label+'</span> <b>'+EF_vessel_used.toFixed(5)+'</b></div>';
-  out += '<div><span style="color:#6b7280">Mm POME</span> <b>'+MmPOME.toFixed(8)+'</b></div>';
-  out += '<div><span style="color:#6b7280">Mm RPOME</span> <b>'+MmRPOME.toFixed(10)+'</b></div>';
+  out += '<div><span style="color:#6b7280">Mm/Md RPOME</span> <b>'+MmPOME+'</b></div>';
+  if (dest !== 'TPG') out += '<div><span style="color:#6b7280">Mm RPOME</span> <b>'+MmRPOME.toFixed(10)+'</b></div>';
   out += '<div><span style="color:#6b7280">FF ('+dest+')</span> <b>'+FF+'</b></div>';
   out += '<div><span style="color:#6b7280">AF ('+dest+')</span> <b>'+AF+'</b></div>';
   out += '</div>';
@@ -1182,34 +1505,34 @@ function _buildEtdResultBlockPdf(r, idx) {
       + '</td>';
   };
   var cardsCells = '';
-  if (hasTruck) cardsCells += card('Etd POME Trucking', etd_truck.toFixed(2), 'kgCO₂e/dry-t', false);
-  if (hasV1)    cardsCells += card('Etd POME Vessel'+(hasV2?' 1':''), etd_v1.toFixed(2), 'kgCO₂e/dry-t', false);
-  if (hasV2)    cardsCells += card('Etd POME Vessel 2', etd_v2.toFixed(2), 'kgCO₂e/dry-t', false);
-  cardsCells += card('Ep Refinery', Ep.toFixed(2), 'kgCO₂e/dry-t', false);
-  cardsCells += card('Etd FOB '+(dest||''), N.toFixed(2), 'kgCO₂e/dry-t', true);
-  cardsCells += card('Total FOB '+(dest||''), R.toFixed(2), 'kgCO₂e/dry-t', false);
+  if (hasTruck) cardsCells += card('Etd POME Trucking', etdFmt(etd_truck), 'kgCO₂e/dry-t', false);
+  if (hasV1)    cardsCells += card('Etd POME Vessel'+(hasV2?' 1':''), etdFmt(etd_v1), 'kgCO₂e/dry-t', false);
+  if (hasV2)    cardsCells += card('Etd POME Vessel 2', etdFmt(etd_v2), 'kgCO₂e/dry-t', false);
+  cardsCells += card('Ep Refinery', etdFmt(Ep), 'kgCO₂e/dry-t', false);
+  cardsCells += card('Etd FOB '+(dest||''), etdFmt(N), 'kgCO₂e/dry-t', true);
+  cardsCells += card('Total FOB '+(dest||''), etdFmt(R), 'kgCO₂e/dry-t', false);
   var cards = '<table style="width:100%;border-collapse:separate;border-spacing:4px;margin:6px 0;table-layout:fixed"><tr>'+cardsCells+'</tr></table>';
 
   // Breakdown table
   var rowsHtml = '';
   if (hasTruck) {
-    rowsHtml += '<tr><td style="'+td+'">Etd POME — Trucking</td><td style="'+tdV+'">'+etd_truck.toFixed(2)+'</td></tr>'
-              + '<tr><td colspan="2" style="'+tdF+'">'+dTruck+' km × η_truck('+h_truck+') × '+EF_label+'('+EF_used.toFixed(5)+') × Mm_POME('+MmPOME.toFixed(6)+')</td></tr>';
+    rowsHtml += '<tr><td style="'+td+'">Etd POME — Trucking</td><td style="'+tdV+'">'+etdFmt(etd_truck)+'</td></tr>'
+              + '<tr><td colspan="2" style="'+tdF+'">'+dTruck+' km × η_truck('+h_truck+') × '+EF_label+'('+EF_used.toFixed(5)+') × Mm/Md RPOME('+MmPOME+')</td></tr>';
   }
   if (hasV1) {
-    rowsHtml += '<tr><td style="'+td+'">Etd POME — Vessel'+(hasV2?' 1':'')+'</td><td style="'+tdV+'">'+etd_v1.toFixed(2)+'</td></tr>'
-              + '<tr><td colspan="2" style="'+tdF+'">'+dV1+' km × η_vessel('+h_vessel+') × '+EF_vessel_label+'('+EF_vessel_used.toFixed(5)+') × Mm_POME('+MmPOME.toFixed(6)+')</td></tr>';
+    rowsHtml += '<tr><td style="'+td+'">Etd POME — Vessel'+(hasV2?' 1':'')+'</td><td style="'+tdV+'">'+etdFmt(etd_v1)+'</td></tr>'
+              + '<tr><td colspan="2" style="'+tdF+'">'+dV1+' km × η_vessel('+h_vessel+') × '+EF_vessel_label+'('+EF_vessel_used.toFixed(5)+') × Mm/Md RPOME('+MmPOME+')</td></tr>';
   }
   if (hasV2) {
-    rowsHtml += '<tr><td style="'+td+'">Etd POME — Vessel 2</td><td style="'+tdV+'">'+etd_v2.toFixed(2)+'</td></tr>'
-              + '<tr><td colspan="2" style="'+tdF+'">'+dV2+' km × η_vessel('+h_vessel+') × '+EF_vessel_label+'('+EF_vessel_used.toFixed(5)+') × Mm_POME('+MmPOME.toFixed(6)+')</td></tr>';
+    rowsHtml += '<tr><td style="'+td+'">Etd POME — Vessel 2</td><td style="'+tdV+'">'+etdFmt(etd_v2)+'</td></tr>'
+              + '<tr><td colspan="2" style="'+tdF+'">'+dV2+' km × η_vessel('+h_vessel+') × '+EF_vessel_label+'('+EF_vessel_used.toFixed(5)+') × Mm/Md RPOME('+MmPOME+')</td></tr>';
   }
-  rowsHtml += '<tr><td style="'+td+'">Ep Refinery</td><td style="'+tdV+'">'+Ep.toFixed(2)+'</td></tr>'
+  rowsHtml += '<tr><td style="'+td+'">Ep Refinery</td><td style="'+tdV+'">'+etdFmt(Ep)+'</td></tr>'
             + '<tr><td colspan="2" style="'+tdF+'">Data CB — '+escH(destLabel)+'</td></tr>'
-            + '<tr><td style="'+td+';font-weight:700">Etd FOB '+(dest||'')+' (N)</td><td style="'+tdV+'">'+N.toFixed(2)+'</td></tr>';
-  if (S !== null) rowsHtml += '<tr><td style="'+td+'">Etd FOB Tj. Langsat (O)</td><td style="'+tdVb+'">'+(dest==='TPG' ? N.toFixed(2) : (S - Ep).toFixed(2))+'</td></tr>';
-  if (T !== null) rowsHtml += '<tr><td style="'+td+'">Etd FOB Port Klang (P)</td><td style="'+tdVb+'">'+(dest==='GLM' ? N.toFixed(2) : (T - Ep).toFixed(2))+'</td></tr>';
-  rowsHtml += '<tr><td style="'+td+';font-weight:700;background:#fef2f2">Total FOB '+(dest||'')+' (R)</td><td style="'+tdVb+';background:#fef2f2">'+R.toFixed(2)+'</td></tr>';
+            + '<tr><td style="'+td+';font-weight:700">Etd FOB '+(dest||'')+' (N)</td><td style="'+tdV+'">'+etdFmt(N)+'</td></tr>';
+  if (S !== null) rowsHtml += '<tr><td style="'+td+'">Etd FOB Tj. Langsat (O)</td><td style="'+tdVb+'">'+(dest==='TPG' ? etdFmt(N) : etdFmt(S - Ep))+'</td></tr>';
+  if (T !== null) rowsHtml += '<tr><td style="'+td+'">Etd FOB Port Klang (P)</td><td style="'+tdVb+'">'+(dest==='GLM' ? etdFmt(N) : etdFmt(T - Ep))+'</td></tr>';
+  rowsHtml += '<tr><td style="'+td+';font-weight:700;background:#fef2f2">Total FOB '+(dest||'')+' (R)</td><td style="'+tdVb+';background:#fef2f2">'+etdFmt(R)+'</td></tr>';
 
   var breakdown = '<table style="width:100%;border-collapse:collapse;margin:4px 0 6px"><thead><tr>'
     + '<th style="'+th+'">Komponen</th><th style="'+thR+'">Nilai (kgCO₂e/dry-t)</th>'
@@ -1223,8 +1546,8 @@ function _buildEtdResultBlockPdf(r, idx) {
   if (hasV1||hasV2) factors += '<td style="padding:4px 8px"><span style="color:#6b7280">η vessel</span> <b>'+h_vessel+'</b></td>';
   factors += '<td style="padding:4px 8px"><span style="color:#6b7280">'+EF_label+'</span> <b>'+EF_used.toFixed(5)+'</b></td>';
   if (hasV1||hasV2) factors += '<td style="padding:4px 8px"><span style="color:#6b7280">'+EF_vessel_label+'</span> <b>'+EF_vessel_used.toFixed(5)+'</b></td>';
-  factors += '<td style="padding:4px 8px"><span style="color:#6b7280">Mm POME</span> <b>'+MmPOME.toFixed(8)+'</b></td>'
-    + '<td style="padding:4px 8px"><span style="color:#6b7280">Mm RPOME</span> <b>'+MmRPOME.toFixed(10)+'</b></td>'
+  factors += '<td style="padding:4px 8px"><span style="color:#6b7280">Mm/Md RPOME</span> <b>'+MmPOME+'</b></td>';
+  if (dest !== 'TPG') factors += '<td style="padding:4px 8px"><span style="color:#6b7280">Mm RPOME</span> <b>'+MmRPOME.toFixed(10)+'</b></td>';
     + '<td style="padding:4px 8px"><span style="color:#6b7280">FF ('+(dest||'')+')</span> <b>'+FF+'</b></td>'
     + '<td style="padding:4px 8px"><span style="color:#6b7280">AF ('+(dest||'')+')</span> <b>'+AF+'</b></td>'
     + '</tr></table>';

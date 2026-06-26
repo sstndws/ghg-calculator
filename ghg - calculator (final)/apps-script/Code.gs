@@ -6,6 +6,7 @@
  *  - GHG Savings Log
  *  - GHG Savings Datacenter
  *  - EF_MASTER
+ *  - ETD Factors  (per-site ETD formula constants — action=getEtdFactors / saveEtdFactors)
  *  - TES Data  (supplier Traceability — action=getSuppliers)
  *  - Raw Data Sites  (EUP site registry — action=getRawDataSites)
  *  - Raw Data  (monthly CPO input — action=getRawData / saveRawData)
@@ -19,6 +20,7 @@ const CFG = {
   SHEET_GHG_SAVINGS_LOG: 'GHG Savings Log',
   SHEET_GHG_SAVINGS_DATACENTER: 'GHG Savings Datacenter',
   SHEET_EF_MASTER: 'EF_MASTER',
+  SHEET_ETD_FACTORS: 'ETD Factors',
   SHEET_TES_DATA: 'TES Data',
   SHEET_RAW_DATA_SITES: 'Raw Data Sites',
   SHEET_RAW_DATA: 'Raw Data',
@@ -37,6 +39,7 @@ function doGet(e) {
     const action = getParam_(e, 'action');
 
     if (action === 'getEfMaster') return jsonOut_(getEfMasterRows_());
+    if (action === 'getEtdFactors') return jsonOut_(getEtdFactorsRows_(getParam_(e, 'siteCode')));
     if (action === 'getEtdLog') return jsonOut_(getEtdLogRows_());
     if (action === 'getGhgSavingsLog') return jsonOut_(getGhgSavingsLogRows_());
     if (action === 'getGhgSavingsDatacenter') return jsonOut_(getGhgSavingsDatacenterRows_());
@@ -67,6 +70,11 @@ function doPost(e) {
     if (body.action === 'updateEfMaster') {
       const result = updateEfMaster_(body.rows || []);
       return jsonOut_({ status: 'ok', message: 'EF master updated', updated: result.updated });
+    }
+
+    if (body.action === 'saveEtdFactors') {
+      const result = saveEtdFactors_(body || {});
+      return jsonOut_({ status: 'ok', siteCode: result.siteCode, updatedAt: result.updatedAt, message: 'ETD factors saved' });
     }
 
     if (body.action === 'saveETDResult') {
@@ -631,6 +639,180 @@ function updateEfMaster_(rows) {
 }
 
 /* =========================
+  ETD FACTORS — per-site formula constants (Breakdown GHG TPG Oil & Gas)
+  Run setupEtdFactorsSheet() once from Apps Script editor.
+========================= */
+
+var ETD_FACTORS_HEADERS_ = [
+  'siteCode', 'siteName', 'h_truck', 'h_vessel', 'h_vessel_export',
+  'EF_B10', 'EF_B40', 'EF_HFO', 'MmPOME', 'Mm_Biodiesel',
+  'FF_Biodiesel', 'AF_Biodiesel', 'FF', 'AF', 'Ep', 'updatedAt'
+];
+
+function etdFactorsGlobalSeed_() {
+  return {
+    h_truck: 0.87,
+    h_vessel: 0.12,
+    h_vessel_export: 0.1,
+    EF_B10: 95.1 / 1000 * 0.9,
+    EF_B40: 95.1 / 1000 * 0.6,
+    EF_HFO: 94.2 / 1000,
+    MmPOME: 1.015228,
+    Mm_Biodiesel: 0.5,
+    FF_Biodiesel: 0.97084002153713655,
+    AF_Biodiesel: 1.0557176687628049,
+  };
+}
+
+function etdFactorsSiteSeeds_() {
+  const g = etdFactorsGlobalSeed_();
+  return [
+    Object.assign({ siteCode: 'LBG', siteName: 'PMC Lubuk Gaung', FF: 1.333733453369344, AF: 0.7653061224489796, Ep: 15.510655996919498 }, g),
+    Object.assign({ siteCode: 'TJP', siteName: 'EUP Tanjung Pura', FF: 1.18124, AF: 0.84663, Ep: 29.96436 }, g),
+    Object.assign({ siteCode: 'BTG', siteName: 'EUP Bontang', FF: 1.05074, AF: 0.94161, Ep: 36.10316 }, g),
+    Object.assign({ siteCode: 'TPG', siteName: 'TPG Tanjung Langsat', FF: 1.68187, AF: 0.64361000000000002, Ep: 57.61433 }, g),
+    Object.assign({ siteCode: 'GLM', siteName: 'GLM Port Klang', FF: 1.24827, AF: 0.80717, Ep: 61.53894 }, g),
+  ];
+}
+
+function etdFactorsSeedForSite_(siteCode) {
+  const code = safeStr_(siteCode).toUpperCase();
+  const seeds = etdFactorsSiteSeeds_();
+  for (let i = 0; i < seeds.length; i++) {
+    if (seeds[i].siteCode === code) return Object.assign({}, seeds[i]);
+  }
+  return null;
+}
+
+function setupEtdFactorsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(CFG.SHEET_ETD_FACTORS);
+  if (!sh) {
+    sh = ss.insertSheet(CFG.SHEET_ETD_FACTORS);
+    sh.getRange(1, 1, 1, ETD_FACTORS_HEADERS_.length).setValues([ETD_FACTORS_HEADERS_]);
+    sh.setFrozenRows(1);
+  }
+
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) {
+    const seeds = etdFactorsSiteSeeds_();
+    const rows = seeds.map(function(s) {
+      return etdFactorsToRow_(s, '');
+    });
+    if (rows.length) sh.getRange(2, 1, rows.length, ETD_FACTORS_HEADERS_.length).setValues(rows);
+  }
+
+  return 'ETD Factors sheet ready';
+}
+
+function etdFactorsToRow_(item, updatedAt) {
+  const row = new Array(ETD_FACTORS_HEADERS_.length).fill('');
+  const map = {
+    siteCode: safeStr_(item.siteCode),
+    siteName: safeStr_(item.siteName),
+    h_truck: toNum_(item.h_truck),
+    h_vessel: toNum_(item.h_vessel),
+    h_vessel_export: toNum_(item.h_vessel_export),
+    EF_B10: toNum_(item.EF_B10),
+    EF_B40: toNum_(item.EF_B40),
+    EF_HFO: toNum_(item.EF_HFO),
+    MmPOME: toNum_(item.MmPOME),
+    Mm_Biodiesel: toNum_(item.Mm_Biodiesel),
+    FF_Biodiesel: toNum_(item.FF_Biodiesel),
+    AF_Biodiesel: toNum_(item.AF_Biodiesel),
+    FF: toNum_(item.FF),
+    AF: toNum_(item.AF),
+    Ep: toNum_(item.Ep),
+    updatedAt: safeStr_(updatedAt),
+  };
+  ETD_FACTORS_HEADERS_.forEach(function(h, i) { row[i] = map[h] != null ? map[h] : ''; });
+  return row;
+}
+
+function etdFactorsFromRow_(row, h) {
+  const siteCode = safeStr_(getByHeader_(row, h, 'siteCode'));
+  if (!siteCode) return null;
+  return {
+    siteCode: siteCode,
+    siteName: safeStr_(getByHeader_(row, h, 'siteName')),
+    h_truck: toNum_(getByHeader_(row, h, 'h_truck')),
+    h_vessel: toNum_(getByHeader_(row, h, 'h_vessel')),
+    h_vessel_export: toNum_(getByHeader_(row, h, 'h_vessel_export')),
+    EF_B10: toNum_(getByHeader_(row, h, 'EF_B10')),
+    EF_B40: toNum_(getByHeader_(row, h, 'EF_B40')),
+    EF_HFO: toNum_(getByHeader_(row, h, 'EF_HFO')),
+    MmPOME: toNum_(getByHeader_(row, h, 'MmPOME')),
+    Mm_Biodiesel: toNum_(getByHeader_(row, h, 'Mm_Biodiesel')),
+    FF_Biodiesel: toNum_(getByHeader_(row, h, 'FF_Biodiesel')),
+    AF_Biodiesel: toNum_(getByHeader_(row, h, 'AF_Biodiesel')),
+    FF: toNum_(getByHeader_(row, h, 'FF')),
+    AF: toNum_(getByHeader_(row, h, 'AF')),
+    Ep: toNum_(getByHeader_(row, h, 'Ep')),
+    updatedAt: safeStr_(getByHeader_(row, h, 'updatedAt')),
+  };
+}
+
+function getEtdFactorsRows_(siteCode) {
+  try {
+    const sh = getSheetOrThrow_(CFG.SHEET_ETD_FACTORS);
+    const values = sh.getDataRange().getValues();
+    if (values.length < 2) return [];
+
+    const headers = values[0].map(function(v) { return safeStr_(v); });
+    const h = headerMap_(headers);
+    const filter = safeStr_(siteCode).toUpperCase();
+    const out = [];
+
+    for (let r = 1; r < values.length; r++) {
+      const row = values[r];
+      if (row.join('') === '') continue;
+      const item = etdFactorsFromRow_(row, h);
+      if (!item) continue;
+      if (filter && item.siteCode.toUpperCase() !== filter) continue;
+      out.push(item);
+    }
+    return out;
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveEtdFactors_(body) {
+  setupEtdFactorsSheet();
+  const sh = getSheetOrThrow_(CFG.SHEET_ETD_FACTORS);
+  const values = sh.getDataRange().getValues();
+  const headers = values.length ? values[0].map(function(v) { return safeStr_(v); }) : ETD_FACTORS_HEADERS_;
+  const h = headerMap_(headers);
+  const siteCol = h['siteCode'];
+  if (siteCol == null) throw new Error('ETD Factors must have siteCode column');
+
+  const siteCode = safeStr_(body.siteCode).toUpperCase();
+  if (!siteCode) throw new Error('siteCode required');
+
+  let item = body.reset === true ? etdFactorsSeedForSite_(siteCode) : null;
+  if (!item) {
+    const seed = etdFactorsSeedForSite_(siteCode) || { siteCode: siteCode, siteName: siteCode };
+    item = Object.assign({}, seed, body.factors || {});
+    item.siteCode = siteCode;
+    if (!item.siteName) item.siteName = seed.siteName || siteCode;
+  }
+
+  const now = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+  const rowArr = etdFactorsToRow_(item, now);
+
+  let targetRow = null;
+  for (let r = 1; r < values.length; r++) {
+    const k = safeStr_(values[r][siteCol]).toUpperCase();
+    if (k === siteCode) { targetRow = r + 1; break; }
+  }
+
+  if (targetRow) sh.getRange(targetRow, 1, targetRow, headers.length).setValues([rowArr]);
+  else sh.appendRow(rowArr);
+
+  return { siteCode: siteCode, updatedAt: now };
+}
+
+/* =========================
   RAW DATA — Sites + monthly CPO input
   Run setupRawDataSheets() once from Apps Script editor to create sheets.
 ========================= */
@@ -660,6 +842,8 @@ function setupRawDataSheets() {
     ]]);
     dataSh.setFrozenRows(1);
   }
+
+  setupEtdFactorsSheet();
 
   return 'Raw Data sheets ready';
 }

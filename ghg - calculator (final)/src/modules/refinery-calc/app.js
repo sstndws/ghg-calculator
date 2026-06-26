@@ -88,6 +88,9 @@ function openETDMode(variant) {
   if (etdPeriod && !etdPeriod.value) etdPeriod.value = String(new Date().getFullYear());
   CALC_MODE = null;
   fetchEtdLog();
+  if (typeof fetchEtdFactorsFromSheets === 'function') {
+    fetchEtdFactorsFromSheets().catch(function() {});
+  }
   renderEtdResultsList();
   requestAnimationFrame(function() { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; });
   showToast(ETD_VARIANT === 'ggl' ? 'Mode: ETD GGL' : 'Mode: ETD', 'success');
@@ -945,7 +948,7 @@ function calculate() {
 /* 
    GOOGLE SHEETS INTEGRATION
  */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0OgQdcBZ6phSnJZE8caHkAueeLvqVoGbosEGNenGucfqsONEI8h4fSWbZjaB9-KZj/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4FKm0-LtsWSlwf7Ro7xZ60YznXCr7wz_nr70rEyCFnp2QlMyrzdLiTyTJK94dW_89/exec';
 const APPS_TOKEN = 'ghg111111117-calcu-ssttn';
 
 function buildAppsScriptUrl(params) {
