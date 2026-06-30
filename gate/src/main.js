@@ -3,22 +3,7 @@ import { supabase, supabaseConfigured } from './supabase.js';
 
 const app = document.getElementById('app');
 
-const LINKS = [
-  {
-    id: 'ghg',
-    title: 'GHG Calculator',
-    desc: 'Emisi GHG — Refinery, ETD, Traceability, Raw Data',
-    url: import.meta.env.VITE_GHG_APP_URL || '/',
-    label: 'Open application →',
-  },
-  {
-    id: 'app2',
-    title: import.meta.env.VITE_PORTAL_APP2_LABEL || 'Sustainability Dashboard',
-    desc: 'Supplier due diligence, mill registry, and reporting',
-    url: import.meta.env.VITE_PORTAL_APP2_URL || '#',
-    label: 'Open application →',
-  },
-].filter((l) => l.url && l.url !== '#');
+const REDIRECT_URL = (import.meta.env.VITE_GHG_APP_URL || '').trim();
 
 function brandLogoSvg() {
   return `
@@ -52,9 +37,34 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+function renderRedirecting() {
+  app.innerHTML = `
+    <div class="page">
+      <div class="auth-card">
+        ${brandBlock()}
+        <hr class="divider" />
+        <p class="auth-lead" style="margin-bottom:0;text-align:center">Redirecting…</p>
+      </div>
+    </div>
+  `;
+}
+
+function goToApp() {
+  if (!REDIRECT_URL) {
+    renderLogin('VITE_GHG_APP_URL belum diset di environment variables.');
+    return;
+  }
+  renderRedirecting();
+  window.location.replace(REDIRECT_URL);
+}
+
 function renderLogin(errorMsg) {
   const configWarn = !supabaseConfigured
     ? `<div class="alert alert-warn">Supabase belum dikonfigurasi. Set <code>VITE_SUPABASE_URL</code> dan <code>VITE_SUPABASE_ANON_KEY</code> di Vercel atau <code>.env.local</code>.</div>`
+    : '';
+
+  const redirectWarn = supabaseConfigured && !REDIRECT_URL
+    ? `<div class="alert alert-warn">Set <code>VITE_GHG_APP_URL</code> di Vercel agar redirect setelah login berfungsi.</div>`
     : '';
 
   app.innerHTML = `
@@ -65,6 +75,7 @@ function renderLogin(errorMsg) {
         <h1 class="auth-title">Sign in</h1>
         <p class="auth-lead">Use your authorized account to access the sustainability portal.</p>
         ${configWarn}
+        ${redirectWarn}
         ${errorMsg ? `<div class="alert alert-error">${escapeHtml(errorMsg)}</div>` : ''}
         <form id="login-form">
           <div class="field">
@@ -84,44 +95,6 @@ function renderLogin(errorMsg) {
   document.getElementById('login-form')?.addEventListener('submit', onLogin);
 }
 
-function renderGate(user) {
-  const cards = (LINKS.length ? LINKS : [{
-    title: 'GHG Calculator',
-    desc: 'Set VITE_GHG_APP_URL in environment variables',
-    url: '#',
-    label: 'URL not configured',
-  }]).map((l) => `
-    <a class="card-link" href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">
-      <h2>${escapeHtml(l.title)}</h2>
-      <p>${escapeHtml(l.desc)}</p>
-      <div class="go">${escapeHtml(l.label)}</div>
-    </a>
-  `).join('');
-
-  app.innerHTML = `
-    <div class="page">
-      <div class="auth-card auth-card-wide">
-        ${brandBlock()}
-        <hr class="divider" />
-        <div class="gate-header">
-          <div>
-            <h1 class="auth-title">Applications</h1>
-            <p class="auth-lead" style="margin-bottom:0">Select an application to open.</p>
-          </div>
-          <div class="user-meta">
-            <div class="user-email">${escapeHtml(user?.email)}</div>
-            <button type="button" class="btn btn-ghost" id="btn-logout">Sign out</button>
-          </div>
-        </div>
-        <div class="cards">${cards}</div>
-        <p class="footer-note">Links open in a new tab</p>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('btn-logout')?.addEventListener('click', onLogout);
-}
-
 async function onLogin(e) {
   e.preventDefault();
   if (!supabase) return;
@@ -133,23 +106,25 @@ async function onLogin(e) {
   btn.disabled = true;
   btn.textContent = 'Signing in…';
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     renderLogin(error.message);
     return;
   }
 
-  renderGate(data.user);
-}
-
-async function onLogout() {
-  if (!supabase) return;
-  await supabase.auth.signOut();
-  renderLogin();
+  goToApp();
 }
 
 async function init() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('signout') && supabase) {
+    await supabase.auth.signOut();
+    window.history.replaceState({}, '', window.location.pathname);
+    renderLogin();
+    return;
+  }
+
   if (!supabaseConfigured) {
     renderLogin();
     return;
@@ -157,13 +132,14 @@ async function init() {
 
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.user) {
-    renderGate(session.user);
-  } else {
-    renderLogin();
+    goToApp();
+    return;
   }
 
+  renderLogin();
+
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) renderGate(session.user);
+    if (session?.user) goToApp();
     else renderLogin();
   });
 }
