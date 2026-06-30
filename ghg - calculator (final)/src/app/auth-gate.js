@@ -63,6 +63,7 @@ function renderLogin(errorMsg) {
 
   gateEl().innerHTML = `
     <div class="auth-page">
+      <a class="auth-back-link" href="${escapeHtml(HUB_PORTAL_URL)}">← Back to Sustainability Hub Portal</a>
       <div class="auth-card">
         ${brandBlock()}
         <hr class="auth-divider" />
@@ -81,7 +82,6 @@ function renderLogin(errorMsg) {
           </div>
           <button type="submit" class="auth-btn auth-btn-primary" id="auth-btn-login" ${supabaseConfigured ? '' : 'disabled'}>Sign in</button>
         </form>
-        <a class="auth-back-link" href="${escapeHtml(HUB_PORTAL_URL)}">← Back to Sustainability Hub Portal</a>
       </div>
     </div>
   `;

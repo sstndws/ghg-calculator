@@ -9,6 +9,7 @@
 #auth-gate[hidden] { display: none; }
 
 .auth-page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -160,14 +161,15 @@
 .auth-btn-primary:hover:not(:disabled) { background: #6b1515; }
 
 .auth-back-link {
-  display: block;
-  margin-top: 20px;
-  text-align: center;
+  position: absolute;
+  top: 24px;
+  left: 24px;
   font-size: 13px;
   font-weight: 500;
   color: #6b7280;
   text-decoration: none;
   transition: color 0.15s;
+  z-index: 1;
 }
 
 .auth-back-link:hover {
@@ -203,6 +205,13 @@
 }
 
 @media (max-width: 480px) {
+  .auth-back-link {
+    top: 16px;
+    left: 16px;
+    font-size: 12px;
+    max-width: calc(100% - 32px);
+  }
+
   .auth-card {
     padding: 28px 22px 32px;
     border-radius: 16px;
