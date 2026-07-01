@@ -2,7 +2,7 @@ import '../styles/auth.css';
 import { supabase, supabaseConfigured } from './supabase.js';
 
 const GATE_ID = 'auth-gate';
-const HUB_PORTAL_URL = (import.meta.env.VITE_HUB_PORTAL_URL || 'https://sustainability-hub-portal.vercel.app/').trim();
+const HUB_PORTAL_URL = (import.meta.env.VITE_HUB_PORTAL_URL || 'https://sustainability-hub-portal-eight.vercel.app/').trim();
 
 function brandLogoSvg() {
   return `
