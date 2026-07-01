@@ -192,7 +192,7 @@ export const refineryCalcView = `<div class="page" id="calc-app-wrap">
           <div id="ggl-mode-hint" class="mode-hint" style="display:none"></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <button type="button" class="btn-calculate" onclick="etdCalculate()">Calculate Emmision</button>
-            <button type="button" class="btn-calculate" style="background:#111827" onclick="saveETDToSheet()">Save ETD</button>
+            <button type="button" class="btn-calculate btn-calculate-save" onclick="saveETDToSheet()">Save ETD</button>
             <button type="button" class="btn-calculate etd-btn-reset" onclick="etdResetForm()">Reset</button>
           </div>
         </div>

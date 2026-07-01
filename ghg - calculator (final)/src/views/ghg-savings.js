@@ -274,7 +274,7 @@ export const ghgSavingsView = `<div class="page" id="ghg-savings-wrap">
     </div>
     <div class="modal-actions" onclick="event.stopPropagation()">
       <button type="button" class="btn btn-outline" onclick="closeGHGSavingsExportModal()">Cancel</button>
-      <button type="button" class="btn btn-outline" onclick="ghgSavingsExportExcel()" style="border-color:#0070c0;color:#0070c0">&#8595; Excel</button>
+      <button type="button" class="btn btn-outline btn-excel-outline" onclick="ghgSavingsExportExcel()">&#8595; Excel</button>
       <button type="button" class="btn btn-red" onclick="ghgSavingsExportPDF()">&#8595; PDF</button>
     </div>
   </div>
