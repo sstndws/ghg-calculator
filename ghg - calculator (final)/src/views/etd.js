@@ -107,7 +107,7 @@ export const etdView = `<div class="page" id="etd-app-wrap">
   <div class="etd-subpage" id="etd-sub-results">
     <div id="etd-results-page">
       <div class="etd-results-toolbar">
-        <div style="font-size:13px;font-weight:600;color:#111">ETD Results — Converted Product</div>
+        <div class="ui-label" style="font-weight:600">ETD Results — Converted Product</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <select id="etd-export-select" style="min-width:240px;background:#f8fafc;border:1px solid #dbe3ef;border-radius:6px;padding:6px 8px;font-size:12px;color:#0f172a">
             <option value="all">All ETD Results (valid only)</option>

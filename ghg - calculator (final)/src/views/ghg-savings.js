@@ -169,14 +169,14 @@ export const ghgSavingsView = `<div class="page" id="ghg-savings-wrap">
     </div>
     <div class="card-body">
       <div style="display:flex;flex-direction:column;gap:0">
-        <div class="calc-row"><span class="cr-label">Ep Refinery + Etd Trucking + Etd Vessel + Ep Biodiesel (g CO₂eq/MJ)</span><span class="cr-val c-blue" id="gs-chain-fob-mj">—<small style="font-size:10px;color:#9ca3af;margin-left:4px">g CO₂eq/MJ</small></span></div>
-        <div class="calc-row"><span class="cr-label" style="color:#9ca3af">Reference total (dry-ton)</span><span class="cr-val" id="gs-chain-total-dry">—<small style="font-size:10px;color:#9ca3af;margin-left:4px">kg CO₂eq/dry-t</small></span></div>
-        <div class="calc-row"><span class="cr-label">GHG Saving FOB = (94 − FoB) ÷ 94 × 100</span><span class="cr-val c-green" id="gs-chain-saving-fob">—<small style="font-size:10px;color:#9ca3af;margin-left:4px">%</small></span></div>
+        <div class="calc-row"><span class="cr-label">Ep Refinery + Etd Trucking + Etd Vessel + Ep Biodiesel (g CO₂eq/MJ)</span><span class="cr-val c-blue" id="gs-chain-fob-mj">—<small class="ui-caption" style="margin-left:4px">g CO₂eq/MJ</small></span></div>
+        <div class="calc-row"><span class="cr-label ui-caption">Reference total (dry-ton)</span><span class="cr-val" id="gs-chain-total-dry">—<small class="ui-caption" style="margin-left:4px">kg CO₂eq/dry-t</small></span></div>
+        <div class="calc-row"><span class="cr-label">GHG Saving FOB = (94 − FoB) ÷ 94 × 100</span><span class="cr-val c-green" id="gs-chain-saving-fob">—<small class="ui-caption" style="margin-left:4px">%</small></span></div>
         <hr>
-        <div class="calc-row"><span class="cr-label" style="color:#9ca3af">+ Vessel Emissions (ETD2)</span><span class="cr-val" id="gs-chain-vessel">—<small style="font-size:10px;color:#9ca3af;margin-left:4px">g CO₂eq/MJ</small></span></div>
-        <div class="calc-row"><span class="cr-label" style="color:#9ca3af">+ Depot &amp; Filling</span><span class="cr-val" id="gs-chain-depot">—<small style="font-size:10px;color:#9ca3af;margin-left:4px">g CO₂eq/MJ</small></span></div>
-        <div class="calc-row"><span class="cr-label" style="color:#2563eb;font-weight:600">Total GHG = FoB + Vessel + Depot</span><span class="cr-val c-blue" id="gs-chain-discharge-mj">—<small style="font-size:10px;color:#9ca3af;margin-left:4px">g CO₂eq/MJ</small></span></div>
-        <div class="calc-row"><span class="cr-label" style="color:#059669;font-weight:600">GHG Saving = (94 − Total) ÷ 94 × 100</span><span class="cr-val c-green" id="gs-chain-saving-discharge" style="font-size:16px;font-weight:700">—<small style="font-size:10px;color:#9ca3af;margin-left:4px">%</small></span></div>
+        <div class="calc-row"><span class="cr-label ui-caption">+ Vessel Emissions (ETD2)</span><span class="cr-val" id="gs-chain-vessel">—<small class="ui-caption" style="margin-left:4px">g CO₂eq/MJ</small></span></div>
+        <div class="calc-row"><span class="cr-label ui-caption">+ Depot &amp; Filling</span><span class="cr-val" id="gs-chain-depot">—<small class="ui-caption" style="margin-left:4px">g CO₂eq/MJ</small></span></div>
+        <div class="calc-row"><span class="cr-label c-blue" style="font-weight:600">Total GHG = FoB + Vessel + Depot</span><span class="cr-val c-blue" id="gs-chain-discharge-mj">—<small class="ui-caption" style="margin-left:4px">g CO₂eq/MJ</small></span></div>
+        <div class="calc-row"><span class="cr-label c-green" style="font-weight:600">GHG Saving = (94 − Total) ÷ 94 × 100</span><span class="cr-val c-green" id="gs-chain-saving-discharge" style="font-size:16px;font-weight:700">—<small class="ui-caption" style="margin-left:4px">%</small></span></div>
       </div>
     </div>
   </div>
@@ -191,16 +191,16 @@ export const ghgSavingsView = `<div class="page" id="ghg-savings-wrap">
       <div class="grid g2" style="gap:16px">
         <div style="background:#f0fdf4;border:1px solid #d1fae5;border-radius:8px;padding:18px 20px;position:relative;overflow:hidden">
           <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#059669;border-radius:8px 8px 0 0"></div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#6b7280;margin-bottom:8px">GHG Saving — FOB</div>
+          <div class="ui-section-label">GHG Saving — FOB</div>
           <div style="font-size:36px;font-weight:700;color:#059669;line-height:1" id="gs-result-fob-big">—<span style="font-size:18px;font-weight:400">%</span></div>
-          <div style="font-size:11px;color:#6b7280;margin-top:6px" id="gs-result-fob-sub">— g CO₂eq/MJ · ref 94</div>
+          <div class="ui-result-sub" id="gs-result-fob-sub">— g CO₂eq/MJ · ref 94</div>
           <div id="gs-badge-fob" style="margin-top:10px"></div>
         </div>
         <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:18px 20px;position:relative;overflow:hidden">
           <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#2563eb;border-radius:8px 8px 0 0"></div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#6b7280;margin-bottom:8px">GHG Saving</div>
+          <div class="ui-section-label">GHG Saving</div>
           <div style="font-size:36px;font-weight:700;color:#2563eb;line-height:1" id="gs-result-discharge-big">—<span style="font-size:18px;font-weight:400">%</span></div>
-          <div style="font-size:11px;color:#6b7280;margin-top:6px" id="gs-result-discharge-sub">— g CO₂eq/MJ · ref 94</div>
+          <div class="ui-result-sub" id="gs-result-discharge-sub">— g CO₂eq/MJ · ref 94</div>
           <div id="gs-badge-discharge" style="margin-top:10px"></div>
         </div>
       </div>
@@ -267,13 +267,13 @@ export const ghgSavingsView = `<div class="page" id="ghg-savings-wrap">
     <div class="modal-sub">Download a corporate report for GHG savings calculation.</div>
     <div style="margin-bottom:16px">
       <label class="modal-label">Select Saved Result</label>
-      <select id="gs-export-record" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12px;color:#111;outline:none;margin-bottom:10px;"></select>
+      <select id="gs-export-record" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12px;color:var(--text-primary);outline:none;margin-bottom:10px;"></select>
       <label class="modal-label">Company / Project Name</label>
-      <input type="text" id="gs-export-company" placeholder="e.g. PT KPN Mekar Nusantara" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12px;color:#111;outline:none;margin-bottom:10px;">
+      <input type="text" id="gs-export-company" placeholder="e.g. PT KPN Mekar Nusantara" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12px;color:var(--text-primary);outline:none;margin-bottom:10px;">
       <label class="modal-label">Reporting Period</label>
-      <input type="text" id="gs-export-period" placeholder="e.g. Q1 2025 / Jan–Mar 2025" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12px;color:#111;outline:none;margin-bottom:10px;">
+      <input type="text" id="gs-export-period" placeholder="e.g. Q1 2025 / Jan–Mar 2025" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12px;color:var(--text-primary);outline:none;margin-bottom:10px;">
       <label class="modal-label">Prepared By</label>
-      <input type="text" id="gs-export-preparer" placeholder="e.g. Sustainability Team" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12px;color:#111;outline:none;">
+      <input type="text" id="gs-export-preparer" placeholder="e.g. Sustainability Team" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12px;color:var(--text-primary);outline:none;">
     </div>
     <div class="modal-actions" onclick="event.stopPropagation()">
       <button type="button" class="btn btn-outline" onclick="closeGHGSavingsExportModal()">Cancel</button>

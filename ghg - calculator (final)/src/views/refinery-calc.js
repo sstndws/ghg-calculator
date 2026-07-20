@@ -140,7 +140,7 @@ export const refineryCalcView = `<div class="page" id="calc-app-wrap">
           <div class="calc-row" id="row-p-water"><span class="cr-label">D. Water</span><span class="cr-val" id="p-water">—</span></div>
           <hr>
           <div class="calc-row">
-            <span class="cr-label" style="font-weight:600;color:#111">Sum of Process Emissions</span>
+            <span class="cr-label" style="font-weight:600;color:var(--text-primary)">Sum of Process Emissions</span>
             <span class="cr-val c-blue" id="p-total" style="font-size:14px;font-weight:600">—</span>
           </div>
           <hr>
@@ -240,7 +240,7 @@ export const refineryCalcView = `<div class="page" id="calc-app-wrap">
         <select id="result-site-filter" onchange="applyResultFilter()">
           <option value="all">All Sites (current input)</option>
         </select>
-        <span id="result-filter-badge" style="font-size:10px;color:#6b7280;display:none"></span>
+        <span id="result-filter-badge" class="ui-caption" style="display:none"></span>
       </div>
       <div class="tb-right">
         <button class="btn btn-outline btn-sm" id="btn-toggle-formulas" onclick="toggleFormulas()">Show formulas</button>
@@ -297,7 +297,7 @@ export const refineryCalcView = `<div class="page" id="calc-app-wrap">
 
   <div class="page" id="page-history">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:12px;color:#6b7280" id="history-count">0 saved calculations</div>
+      <div class="ui-note" id="history-count">0 saved calculations</div>
       <div style="display:flex;align-items:center;gap:8px">
         <select id="history-filter" class="btn btn-outline" style="min-width:150px;font-size:12px;padding:5px 10px;cursor:pointer" onchange="renderHistory()">
           <option value="all">All Sites</option>

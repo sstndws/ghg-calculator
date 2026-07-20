@@ -289,7 +289,7 @@ function renderFactorEditorRows() {
   var html = '';
   factorRowsCache.forEach(function(r) {
     html += '<tr>'
-      + '<td><strong>' + escHtml(r.label) + '</strong><div style="font-size:10px;color:#9ca3af">' + escHtml(r.key) + '</div></td>'
+      + '<td><strong>' + escHtml(r.label) + '</strong><div style="font-size:10px;color:var(--text-muted)">' + escHtml(r.key) + '</div></td>'
       + '<td><input type="number" step="any" id="ef-edit-' + escHtml(r.key) + '" value="' + escHtml(r.ef) + '"></td>'
       + '<td><input type="text" id="ref-edit-' + escHtml(r.key) + '" value="' + escHtml(r.reference) + '"></td>'
       + '</tr>';
@@ -919,25 +919,25 @@ function calculate() {
   var fmtEpCell = CALC_MODE === 'ggl' ? fmtGglEp : function(v) { return fmt(v, 5); };
   rows.forEach(r=>{
     if(r.cat) html+=`<tr class="cat-row"><td colspan="6">${r.cat}</td></tr>`;
-    else if(r.sub) html+=`<tr><td colspan="3" style="text-align:right;color:#9ca3af;font-size:11px;padding:6px 12px">${r.sub}</td><td></td><td class="c-blue" style="font-weight:600">${fmt(r.val)}</td><td></td></tr>`;
-    else html+=`<tr><td>${r.name}</td><td style="color:#6b7280">${r.val?fmt(r.val,3):'0'}</td><td style="color:#6b7280">${r.ef}</td><td style="color:#9ca3af;font-size:11px">${r.uom}</td><td style="font-weight:500">${fmtResCell(r.res)}</td><td style="color:#d1d5db;font-size:11px">${r.ref}</td></tr>`;
+    else if(r.sub) html+=`<tr><td colspan="3" style="text-align:right;color:var(--text-muted);font-size:11px;padding:6px 12px">${r.sub}</td><td></td><td class="c-blue" style="font-weight:600">${fmt(r.val)}</td><td></td></tr>`;
+    else html+=`<tr><td>${r.name}</td><td style="color:var(--text-secondary)">${r.val?fmt(r.val,3):'0'}</td><td style="color:var(--text-secondary)">${r.ef}</td><td style="color:var(--text-muted);font-size:11px">${r.uom}</td><td style="font-weight:500">${fmtResCell(r.res)}</td><td style="color:#d1d5db;font-size:11px">${r.ref}</td></tr>`;
   });
   html+=`
     <tr style="background:#f9fafb;border-top:2px solid #e5e7eb">
       <td colspan="3" style="font-weight:600">Sum of Process Emissions</td><td></td>
-      <td class="c-blue" style="font-weight:700;font-size:14px">${fmtSumCell(total)}</td><td style="color:#9ca3af;font-size:11px">kg COeq</td>
+      <td class="c-blue" style="font-weight:700;font-size:14px">${fmtSumCell(total)}</td><td style="color:var(--text-muted);font-size:11px">kg COeq</td>
     </tr>
-    <tr><td colspan="3" style="color:#9ca3af;padding-top:6px">${Lrow.epDry1}</td><td></td><td class="c-green" style="font-weight:600">${fmtEpCell(epRpome)}</td><td style="color:#9ca3af;font-size:11px">kg COeq/dry-ton</td></tr>`;
+    <tr><td colspan="3" style="color:var(--text-muted);padding-top:6px">${Lrow.epDry1}</td><td></td><td class="c-green" style="font-weight:600">${fmtEpCell(epRpome)}</td><td style="color:var(--text-muted);font-size:11px">kg COeq/dry-ton</td></tr>`;
   if (CALC_MODE !== 'ggl') {
     html += `
-    <tr><td colspan="3" style="color:#9ca3af">${Lrow.epDry2}</td><td></td><td class="c-purple" style="font-weight:600">${fmt(epFad,5)}</td><td style="color:#9ca3af;font-size:11px">kg COeq/dry-ton</td></tr>
-    <tr><td colspan="3" style="color:#9ca3af">${Lrow.epAlloc1}</td><td></td><td class="c-green" style="font-weight:600">${fmt(epRpomeAlloc,5)}</td><td style="color:#9ca3af;font-size:11px">kg COeq/dry-ton</td></tr>
-    <tr><td colspan="3" style="color:#9ca3af;padding-bottom:8px">${Lrow.epAlloc2}</td><td></td><td class="c-purple" style="font-weight:600">${fmt(epFadAlloc,5)}</td><td style="color:#9ca3af;font-size:11px">kg COeq/dry-ton</td></tr>`;
+    <tr><td colspan="3" style="color:var(--text-muted)">${Lrow.epDry2}</td><td></td><td class="c-purple" style="font-weight:600">${fmt(epFad,5)}</td><td style="color:var(--text-muted);font-size:11px">kg COeq/dry-ton</td></tr>
+    <tr><td colspan="3" style="color:var(--text-muted)">${Lrow.epAlloc1}</td><td></td><td class="c-green" style="font-weight:600">${fmt(epRpomeAlloc,5)}</td><td style="color:var(--text-muted);font-size:11px">kg COeq/dry-ton</td></tr>
+    <tr><td colspan="3" style="color:var(--text-muted);padding-bottom:8px">${Lrow.epAlloc2}</td><td></td><td class="c-purple" style="font-weight:600">${fmt(epFadAlloc,5)}</td><td style="color:var(--text-muted);font-size:11px">kg COeq/dry-ton</td></tr>`;
   } else {
     html += '';
   }
   if (CALC_MODE === 'biodiesel') {
-    html += `<tr><td colspan="3" style="color:#9ca3af;padding-bottom:8px">Ep (allocated) — g CO₂eq/MJ PME</td><td></td><td class="c-amber" style="font-weight:600">${fmt(epMj,5)}</td><td style="color:#9ca3af;font-size:11px">g CO₂eq/MJ</td></tr>`;
+    html += `<tr><td colspan="3" style="color:var(--text-muted);padding-bottom:8px">Ep (allocated) — g CO₂eq/MJ PME</td><td></td><td class="c-amber" style="font-weight:600">${fmt(epMj,5)}</td><td style="color:var(--text-muted);font-size:11px">g CO₂eq/MJ</td></tr>`;
   }
   html += '';
   document.getElementById('result-tbody').innerHTML = html;
@@ -996,7 +996,7 @@ function fetchHistory() {
   var tb = document.getElementById('history-tbody');
 
   tb.innerHTML =
-    '<tr><td colspan="11" class="empty" style="color:#9ca3af">'
+    '<tr><td colspan="11" class="empty" style="color:var(--text-muted)">'
     + '<span style="display:inline-block;animation:pulse 1.2s ease-in-out infinite">'
     + ' Loading records from Google Sheets…'
     + '</span></td></tr>';
@@ -1388,15 +1388,15 @@ function renderHistory() {
     var epMjDisp = (h.calcType === 'biodiesel') ? fmt(h.epMj || 0, 2) : '—';
     rows += '<tr>'
       + '<td style="font-weight:500">'               + displayPeriod          + '</td>'
-      + '<td style="font-size:11px;color:#6b7280">' + typeLabel               + '</td>'
-      + '<td style="color:#6b7280">'                 + h.site                 + '</td>'
+      + '<td style="font-size:11px;color:var(--text-secondary)">' + typeLabel               + '</td>'
+      + '<td style="color:var(--text-secondary)">'                 + h.site                 + '</td>'
       + '<td class="c-blue" style="font-weight:500">'+ fmt(h.total)           + '</td>'
       + '<td class="c-green">'                       + fmt(h.epRpome, 2)      + '</td>'
       + '<td class="c-purple">'                      + fmt(h.epFad, 2)        + '</td>'
       + '<td class="c-amber">'                       + fmt(h.epRpomeAlloc, 2) + '</td>'
       + '<td class="c-purple">'                      + fmt(h.epFadAlloc, 2)   + '</td>'
       + '<td style="font-size:11px">'                + epMjDisp               + '</td>'
-      + '<td style="color:#9ca3af;font-size:11px">'  + h.savedAt              + '</td>'
+      + '<td style="color:var(--text-muted);font-size:11px">'  + h.savedAt              + '</td>'
       + '<td><button class="btn btn-outline btn-sm" onclick="delH(\'' + h.id + '\')"></button></td>'
       + '</tr>';
   }
@@ -1680,27 +1680,27 @@ function renderDetailRows(rows, record) {
     if (r.type === 'cat') {
       html += '<tr class="cat-row"><td colspan="6">' + r.description + '</td></tr>';
     } else if (r.type === 'sub') {
-      html += '<tr><td colspan="3" style="text-align:right;color:#9ca3af;font-size:11px;padding:6px 12px">' + r.description + '</td><td></td>'
+      html += '<tr><td colspan="3" style="text-align:right;color:var(--text-muted);font-size:11px;padding:6px 12px">' + r.description + '</td><td></td>'
             + '<td class="c-blue" style="font-weight:600">' + fmt(r.result) + '</td><td></td></tr>';
     } else if (r.type === 'total') {
       html += '<tr style="background:#f9fafb;border-top:2px solid #e5e7eb">'
             + '<td colspan="3" style="font-weight:600">' + r.description + '</td><td></td>'
             + '<td class="c-blue" style="font-weight:700;font-size:14px">' + fmt(r.result) + '</td>'
-            + '<td style="color:#9ca3af;font-size:11px">kg CO\u2082eq</td></tr>';
+            + '<td style="color:var(--text-muted);font-size:11px">kg CO\u2082eq</td></tr>';
     } else if (r.type === 'ep') {
       var epClass = 'c-purple';
       var d = String(r.description || '');
       if (/MJ\s*PME|g\s*CO.*MJ/i.test(d)) epClass = 'c-amber';
       else if (/PME|RPOME/i.test(d) && !/FAD|CG/i.test(d)) epClass = 'c-green';
-      html += '<tr><td colspan="3" style="color:#9ca3af">' + r.description + '</td><td></td>'
+      html += '<tr><td colspan="3" style="color:var(--text-muted)">' + r.description + '</td><td></td>'
             + '<td class="' + epClass + '" style="font-weight:600">' + fmt(r.result, 5) + '</td>'
-            + '<td style="color:#9ca3af;font-size:11px">' + (r.uom||'') + '</td></tr>';
+            + '<td style="color:var(--text-muted);font-size:11px">' + (r.uom||'') + '</td></tr>';
     } else {
       var efStr = r.ef != null ? r.ef : '';
       html += '<tr><td>' + r.description + '</td>'
-            + '<td style="color:#6b7280">' + (r.value ? fmt(r.value,3) : '0') + '</td>'
-            + '<td style="color:#6b7280">' + efStr + '</td>'
-            + '<td style="color:#9ca3af;font-size:11px">' + (r.uom||'') + '</td>'
+            + '<td style="color:var(--text-secondary)">' + (r.value ? fmt(r.value,3) : '0') + '</td>'
+            + '<td style="color:var(--text-secondary)">' + efStr + '</td>'
+            + '<td style="color:var(--text-muted);font-size:11px">' + (r.uom||'') + '</td>'
             + '<td style="font-weight:500">' + fmt(r.result) + '</td>'
             + '<td style="color:#d1d5db;font-size:11px" contenteditable="true">' + (r.ref||'') + '</td></tr>';
     }

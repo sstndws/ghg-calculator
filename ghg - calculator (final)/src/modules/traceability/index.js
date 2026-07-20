@@ -113,7 +113,7 @@ function trcExcelAreaValue_(area) {
 /** Badge Certificate mengikuti teks data (Sheets): ISCC, INS, atau keduanya mis. "ISCC + INS". */
 function trcCertBadgesHtml(cert) {
   var c = String(cert == null ? '' : cert);
-  if (!c.trim()) return '<span style="color:#9ca3af">—</span>';
+  if (!c.trim()) return '<span style="color:var(--text-muted)">—</span>';
   var hasIscc = /iscc/i.test(c);
   var hasIns = /\bins\b/i.test(c);
   var parts = [];
@@ -194,7 +194,7 @@ function trcRenderSupplierTable() {
   trcUpdatePaginationBar();
 
   if (!nAll) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af">Tidak ada supplier ditemukan</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text-muted)">Tidak ada supplier ditemukan</td></tr>';
     return;
   }
   var start = (trcCurrentPage - 1) * TRC_PAGE_SIZE;
@@ -463,7 +463,7 @@ function trcSaveToETD() {
 
 function _trcResCard(label, val, color, highlight) {
   return '<div style="border:1px solid '+(highlight?'#fecaca':'#e5e7eb')+';border-radius:8px;padding:12px 14px;background:'+(highlight?'#fef2f2':'#f9fafb')+'">'
-    + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.4px;color:#9ca3af;margin-bottom:5px">'+label+'</div>'
+    + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);margin-bottom:5px">'+label+'</div>'
     + '<div style="font-size:13px;font-weight:600;color:'+(color||'#111')+'">'+val+'</div></div>';
 }
 

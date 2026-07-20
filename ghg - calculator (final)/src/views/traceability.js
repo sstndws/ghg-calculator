@@ -148,7 +148,7 @@ export const traceabilityView = `<div id="traceability-wrap">
     </div>
     <div class="trc-action-bar">
       <button class="btn btn-trc-save" onclick="trcSaveToETD()">Save to ETD &amp; Calculate Automatically</button>
-      <span style="font-size:11px;color:#6b7280" id="trc-save-status"></span>
+      <span class="ui-status" id="trc-save-status"></span>
     </div>
   </div>
 

@@ -1270,9 +1270,9 @@ function _etdStatCard(label, val, unit, hl) {
   var br = hl ? '#fecaca' : '#e5e7eb';
   var clr = hl ? '#dc2626' : '#111';
   return '<div style="border:1px solid '+br+';border-radius:8px;padding:10px 12px;background:'+bg+';min-width:120px">'
-    + '<div style="font-size:10px;color:#6b7280;margin-bottom:4px">'+label+'</div>'
+    + '<div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px">'+label+'</div>'
     + '<div style="font-size:18px;font-weight:700;color:'+clr+'">'+val+'</div>'
-    + (unit ? '<div style="font-size:9px;color:#9ca3af">'+unit+'</div>' : '')
+    + (unit ? '<div style="font-size:9px;color:var(--text-muted)">'+unit+'</div>' : '')
     + '</div>';
 }
 
@@ -1281,9 +1281,9 @@ function _etdFobCard(label, val, primary) {
   var br = primary ? '#fecaca' : '#e5e7eb';
   var clr = primary ? '#dc2626' : '#111';
   return '<div style="border:1px solid '+br+';border-radius:8px;padding:14px;background:'+bg+';text-align:center">'
-    + '<div style="font-size:10px;color:#6b7280;margin-bottom:6px">'+label+'</div>'
+    + '<div style="font-size:10px;color:var(--text-secondary);margin-bottom:6px">'+label+'</div>'
     + '<div style="font-size:22px;font-weight:700;color:'+clr+'">'+val+'</div>'
-    + '<div style="font-size:9px;color:#9ca3af;margin-top:4px">kgCO₂e/dry-t</div></div>';
+    + '<div style="font-size:9px;color:var(--text-muted);margin-top:4px">kgCO₂e/dry-t</div></div>';
 }
 
 function _buildEtdResultBlock(r) {
@@ -1341,7 +1341,7 @@ function _buildEtdResultBlock(r) {
   var th = 'style="background:#1e293b;color:#fff;padding:6px 12px;text-align:left;font-size:10px;font-weight:600;letter-spacing:0.3px"';
   var td = 'style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:12px"';
   var tdv = 'style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:12px;text-align:right;font-weight:600;color:#dc2626"';
-  var tdf = 'style="padding:4px 12px 8px;font-size:10px;color:#9ca3af;border-bottom:1px solid #f1f5f9"';
+  var tdf = 'style="padding:4px 12px 8px;font-size:10px;color:var(--text-muted);border-bottom:1px solid #f1f5f9"';
 
   out += '<div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse">';
   out += '<thead><tr><th '+th+'>Komponen</th><th '+th+' style="text-align:right">Nilai</th></tr></thead><tbody>';
@@ -1378,14 +1378,14 @@ function _buildEtdResultBlock(r) {
   var FF = d.FF || 0;
   var AF = d.AF || 0;
   out += '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:11px">';
-  if (hasTruck) out += '<div><span style="color:#6b7280">η truck</span> <b>'+h_truck+'</b></div>';
-  if (hasV1||hasV2) out += '<div><span style="color:#6b7280">η vessel</span> <b>'+h_vessel+'</b></div>';
-  out += '<div><span style="color:#6b7280">'+EF_label+'</span> <b>'+EF_used.toFixed(5)+'</b></div>';
-  if (hasV1||hasV2) out += '<div><span style="color:#6b7280">'+EF_vessel_label+'</span> <b>'+EF_vessel_used.toFixed(5)+'</b></div>';
-  out += '<div><span style="color:#6b7280">Mm/Md RPOME</span> <b>'+MmPOME+'</b></div>';
-  if (dest !== 'TPG') out += '<div><span style="color:#6b7280">Mm RPOME</span> <b>'+MmRPOME.toFixed(10)+'</b></div>';
-  out += '<div><span style="color:#6b7280">FF ('+dest+')</span> <b>'+FF+'</b></div>';
-  out += '<div><span style="color:#6b7280">AF ('+dest+')</span> <b>'+AF+'</b></div>';
+  if (hasTruck) out += '<div><span style="color:var(--text-secondary)">η truck</span> <b>'+h_truck+'</b></div>';
+  if (hasV1||hasV2) out += '<div><span style="color:var(--text-secondary)">η vessel</span> <b>'+h_vessel+'</b></div>';
+  out += '<div><span style="color:var(--text-secondary)">'+EF_label+'</span> <b>'+EF_used.toFixed(5)+'</b></div>';
+  if (hasV1||hasV2) out += '<div><span style="color:var(--text-secondary)">'+EF_vessel_label+'</span> <b>'+EF_vessel_used.toFixed(5)+'</b></div>';
+  out += '<div><span style="color:var(--text-secondary)">Mm/Md RPOME</span> <b>'+MmPOME+'</b></div>';
+  if (dest !== 'TPG') out += '<div><span style="color:var(--text-secondary)">Mm RPOME</span> <b>'+MmRPOME.toFixed(10)+'</b></div>';
+  out += '<div><span style="color:var(--text-secondary)">FF ('+dest+')</span> <b>'+FF+'</b></div>';
+  out += '<div><span style="color:var(--text-secondary)">AF ('+dest+')</span> <b>'+AF+'</b></div>';
   out += '</div>';
 
   return out;
@@ -1455,7 +1455,7 @@ function useEtdResultForSavings(idx) {
 
 function _etdResCard(label, val, color, highlight) {
   return '<div style="border:1px solid '+(highlight?'#fecaca':'#e5e7eb')+';border-radius:7px;padding:10px 12px;background:'+(highlight?'#fef2f2':'#f9fafb')+'">'
-    + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.4px;color:#9ca3af;margin-bottom:4px">'+label+'</div>'
+    + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);margin-bottom:4px">'+label+'</div>'
     + '<div style="font-size:13px;font-weight:600;color:'+(color||'#111')+'">'+val+'</div></div>';
 }
 
@@ -1507,8 +1507,8 @@ function _buildEtdResultBlockPdf(r, idx) {
   var thR = th + ';text-align:right';
   var td  = 'padding:5px 8px;border-bottom:1px solid #f1f5f9;font-size:8pt';
   var tdV = 'padding:5px 8px;border-bottom:1px solid #f1f5f9;font-size:8pt;text-align:right;font-weight:600;color:#dc2626';
-  var tdVb= 'padding:5px 8px;border-bottom:1px solid #f1f5f9;font-size:8pt;text-align:right;font-weight:600;color:#111827';
-  var tdF = 'padding:2px 8px 5px;font-size:7pt;color:#9ca3af;border-bottom:1px solid #f1f5f9';
+  var tdVb= 'padding:5px 8px;border-bottom:1px solid #f1f5f9;font-size:8pt;text-align:right;font-weight:600;color:var(--text-primary)827';
+  var tdF = 'padding:2px 8px 5px;font-size:7pt;color:var(--text-muted);border-bottom:1px solid #f1f5f9';
 
   // Header strip
   var hdr = ''
@@ -1589,14 +1589,14 @@ function _buildEtdResultBlockPdf(r, idx) {
   var FF = d.FF || 0, AF = d.AF || 0;
   var factors = '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;margin-bottom:4px">'
     + '<tr>';
-  if (hasTruck)     factors += '<td style="padding:4px 8px"><span style="color:#6b7280">η truck</span> <b>'+h_truck+'</b></td>';
-  if (hasV1||hasV2) factors += '<td style="padding:4px 8px"><span style="color:#6b7280">η vessel</span> <b>'+h_vessel+'</b></td>';
-  factors += '<td style="padding:4px 8px"><span style="color:#6b7280">'+EF_label+'</span> <b>'+EF_used.toFixed(5)+'</b></td>';
-  if (hasV1||hasV2) factors += '<td style="padding:4px 8px"><span style="color:#6b7280">'+EF_vessel_label+'</span> <b>'+EF_vessel_used.toFixed(5)+'</b></td>';
-  factors += '<td style="padding:4px 8px"><span style="color:#6b7280">Mm/Md RPOME</span> <b>'+MmPOME+'</b></td>';
-  if (dest !== 'TPG') factors += '<td style="padding:4px 8px"><span style="color:#6b7280">Mm RPOME</span> <b>'+MmRPOME.toFixed(10)+'</b></td>';
-    + '<td style="padding:4px 8px"><span style="color:#6b7280">FF ('+(dest||'')+')</span> <b>'+FF+'</b></td>'
-    + '<td style="padding:4px 8px"><span style="color:#6b7280">AF ('+(dest||'')+')</span> <b>'+AF+'</b></td>'
+  if (hasTruck)     factors += '<td style="padding:4px 8px"><span style="color:var(--text-secondary)">η truck</span> <b>'+h_truck+'</b></td>';
+  if (hasV1||hasV2) factors += '<td style="padding:4px 8px"><span style="color:var(--text-secondary)">η vessel</span> <b>'+h_vessel+'</b></td>';
+  factors += '<td style="padding:4px 8px"><span style="color:var(--text-secondary)">'+EF_label+'</span> <b>'+EF_used.toFixed(5)+'</b></td>';
+  if (hasV1||hasV2) factors += '<td style="padding:4px 8px"><span style="color:var(--text-secondary)">'+EF_vessel_label+'</span> <b>'+EF_vessel_used.toFixed(5)+'</b></td>';
+  factors += '<td style="padding:4px 8px"><span style="color:var(--text-secondary)">Mm/Md RPOME</span> <b>'+MmPOME+'</b></td>';
+  if (dest !== 'TPG') factors += '<td style="padding:4px 8px"><span style="color:var(--text-secondary)">Mm RPOME</span> <b>'+MmRPOME.toFixed(10)+'</b></td>';
+    + '<td style="padding:4px 8px"><span style="color:var(--text-secondary)">FF ('+(dest||'')+')</span> <b>'+FF+'</b></td>'
+    + '<td style="padding:4px 8px"><span style="color:var(--text-secondary)">AF ('+(dest||'')+')</span> <b>'+AF+'</b></td>'
     + '</tr></table>';
 
   return '<div style="margin-bottom:10px;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">'
