@@ -14,7 +14,7 @@ export const ghgSavingsView = `<div class="page" id="ghg-savings-wrap">
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     ${headerHubPortalLink()}
     <button class="btn btn-outline" onclick="ghgSavingsReset()">Reset</button>
-    <button class="btn btn-outline" onclick="ghgSavingsSaveCurrentResult()">Save Result</button>
+    <button type="button" class="btn btn-outline" id="gs-save-result-btn" onclick="ghgSavingsSaveCurrentResult()">Save Result</button>
     <button class="btn btn-dark" onclick="openGHGSavingsExportModal()">&#8595; Export</button>
   </div>
 </div>

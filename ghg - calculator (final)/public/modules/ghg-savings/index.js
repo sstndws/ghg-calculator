@@ -475,7 +475,25 @@ function ghgSavingsGetCurrentData() {
   };
 }
 
+function ghgSavingsSetSaveLoading(isLoading) {
+  var btn = document.getElementById('gs-save-result-btn');
+  if (!btn) return;
+  if (isLoading) {
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent.trim() || 'Save Result';
+    btn.disabled = true;
+    btn.classList.add('btn-loading');
+    btn.innerHTML = '<span class="btn-loading-spinner" aria-hidden="true"></span> Saving…';
+  } else {
+    btn.disabled = false;
+    btn.classList.remove('btn-loading');
+    btn.textContent = btn.dataset.label || 'Save Result';
+  }
+}
+
 function ghgSavingsSaveCurrentResult() {
+  var btn = document.getElementById('gs-save-result-btn');
+  if (btn && btn.disabled) return;
+
   var d = ghgSavingsGetCurrentData();
   var period = (document.getElementById('gs-period').value || '').trim() || String(new Date().getFullYear());
   var site = (document.getElementById('gs-site').value || '').trim();
@@ -496,6 +514,7 @@ function ghgSavingsSaveCurrentResult() {
   if (all.length > GS_MAX_SAVED_RESULTS) all = all.slice(0, GS_MAX_SAVED_RESULTS);
   setGhgSavingsSavedResults(all);
   ghgSavingsRenderExportRecordOptions();
+  ghgSavingsSetSaveLoading(true);
   ghgSavingsSaveToSheet(rec);
 }
 
@@ -529,6 +548,9 @@ function ghgSavingsSaveToSheet(rec) {
     .catch(function(err) {
       console.error('ghgSavingsSaveToSheet error:', err);
       showToast('Saved locally. Sheet sync failed.', 'error');
+    })
+    .finally(function() {
+      ghgSavingsSetSaveLoading(false);
     });
 }
 
@@ -562,11 +584,13 @@ function ghgSavingsExportExcel() {
   var preparer = document.getElementById('gs-export-preparer').value || '-';
 
   var wb = XLSX.utils.book_new();
+  var importCountry = d.country || 'Custom';
   var rows = [
     ['GHG SAVINGS BIODIESEL', '', '', ''],
     ['Company', company, 'Period', period],
     ['Prepared By', preparer, 'Generated', new Date().toLocaleDateString('en-GB')],
-    ['Methodology', 'ISCC/EU Directive 2018/2001', 'Ref. Fossil', GS_REF_FF + ' g CO₂eq/MJ'],
+    ['Import Country', importCountry, 'Methodology', 'ISCC/EU Directive 2018/2001'],
+    ['Ref. Fossil', GS_REF_FF + ' g CO₂eq/MJ', '', ''],
     [],
     ['INPUTS', '', '', ''],
     ['Parameter', 'Value', 'Unit', 'Notes'],
@@ -643,15 +667,17 @@ function ghgSavingsGeneratePdf(JsPDF) {
     var periodRaw   = document.getElementById('gs-export-period').value || new Date().getFullYear();
     var preparerRaw = document.getElementById('gs-export-preparer').value || '';
     var countryRaw  = d.country || 'Custom';
+    var countryDisplay = pdfSafeText(countryRaw);
     var generated = new Date().toLocaleDateString('en-GB');
     var preparerDisplay = gsPdfDisplayText(preparerRaw);
     var epTotalDry = (d.ep_ref_dry || 0) + (d.ep_bd_dry || 0);
     var epTotalMj  = (d.ep_ref_mj || 0) + (d.ep_bd_mj || 0);
-    var depotLabel = 'Depot & Filling (' + pdfSafeText(countryRaw) + ')';
+    var depotLabel = 'Depot & Filling (' + countryDisplay + ')';
 
     var doc = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     var y = pdfWriteBanner(doc, {
       title: 'GHG Savings Biodiesel',
+      highlight: 'Import Country: ' + countryDisplay,
       subtitle: 'ISCC/EU 2018/2001 · LHV PME 37 MJ/kg · Ref. ' + GS_REF_FF + ' g CO2eq/MJ',
       metaLines: [
         pdfSafeText(companyRaw),

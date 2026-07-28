@@ -210,10 +210,12 @@ function pdfWriteBanner(doc, opts) {
   var pageW = doc.internal.pageSize.getWidth();
   var title = opts.title || 'Report';
   var subtitle = opts.subtitle || '';
+  var highlight = opts.highlight || '';
   var metaLines = opts.metaLines || [];
+  var bannerH = highlight ? 32 : 26;
 
   doc.setFillColor.apply(doc, PDF_BRAND);
-  doc.rect(0, 0, pageW, 26, 'F');
+  doc.rect(0, 0, pageW, bannerH, 'F');
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'normal');
@@ -223,13 +225,19 @@ function pdfWriteBanner(doc, opts) {
   doc.setFontSize(15);
   doc.text(String(title), PDF_MARGIN, 18);
 
+  if (highlight) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.text(String(highlight), PDF_MARGIN, 27);
+  }
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   metaLines.forEach(function(line, i) {
     doc.text(String(line), pageW - PDF_MARGIN, 8 + (i * 4.3), { align: 'right' });
   });
 
-  var y = 32;
+  var y = bannerH + 6;
   if (subtitle) {
     doc.setTextColor(100, 116, 139);
     doc.setFontSize(8);
