@@ -584,13 +584,11 @@ function ghgSavingsExportExcel() {
   var preparer = document.getElementById('gs-export-preparer').value || '-';
 
   var wb = XLSX.utils.book_new();
-  var importCountry = d.country || 'Custom';
   var rows = [
     ['GHG SAVINGS BIODIESEL', '', '', ''],
     ['Company', company, 'Period', period],
     ['Prepared By', preparer, 'Generated', new Date().toLocaleDateString('en-GB')],
-    ['Import Country', importCountry, 'Methodology', 'ISCC/EU Directive 2018/2001'],
-    ['Ref. Fossil', GS_REF_FF + ' g CO₂eq/MJ', '', ''],
+    ['Methodology', 'ISCC/EU Directive 2018/2001', 'Ref. Fossil', GS_REF_FF + ' g CO₂eq/MJ'],
     [],
     ['INPUTS', '', '', ''],
     ['Parameter', 'Value', 'Unit', 'Notes'],
@@ -667,17 +665,15 @@ function ghgSavingsGeneratePdf(JsPDF) {
     var periodRaw   = document.getElementById('gs-export-period').value || new Date().getFullYear();
     var preparerRaw = document.getElementById('gs-export-preparer').value || '';
     var countryRaw  = d.country || 'Custom';
-    var countryDisplay = pdfSafeText(countryRaw);
     var generated = new Date().toLocaleDateString('en-GB');
     var preparerDisplay = gsPdfDisplayText(preparerRaw);
     var epTotalDry = (d.ep_ref_dry || 0) + (d.ep_bd_dry || 0);
     var epTotalMj  = (d.ep_ref_mj || 0) + (d.ep_bd_mj || 0);
-    var depotLabel = 'Depot & Filling (' + countryDisplay + ')';
+    var depotLabel = 'Depot & Filling (' + pdfSafeText(countryRaw) + ')';
 
     var doc = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     var y = pdfWriteBanner(doc, {
       title: 'GHG Savings Biodiesel',
-      highlight: 'Import Country: ' + countryDisplay,
       subtitle: 'ISCC/EU 2018/2001 · LHV PME 37 MJ/kg · Ref. ' + GS_REF_FF + ' g CO2eq/MJ',
       metaLines: [
         pdfSafeText(companyRaw),
