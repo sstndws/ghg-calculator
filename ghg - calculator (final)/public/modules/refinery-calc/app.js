@@ -148,6 +148,8 @@ let addedItems = new Set();
 let ITEM_INPUT_MODE = 'all'; // all | manual
 let R = {};
 let ghgData = [];
+let editingRecordId = null;
+let editingRecordSite = null;
 var gsDatacenterRows = [];
 let etdData = [];
 let factorRowsCache = [];
@@ -1228,7 +1230,9 @@ function saveToSheet() {
   if (!R.total) { showToast('Run a calculation first', 'error'); return; }
   const site = document.getElementById('sel-site').value.trim();
   if (!site) { showToast('Please specify a Site first!', 'error'); document.getElementById('sel-site').focus(); return; }
+  var isEditMode = editingRecordId != null;
   var duplicateSite = ghgData.some(function(h) {
+    if (isEditMode && String(h.site || '').trim().toLowerCase() === String(editingRecordSite || '').trim().toLowerCase()) return false;
     return String(h.site || '').trim().toLowerCase() === site.toLowerCase();
   });
   if (duplicateSite) {
@@ -1239,7 +1243,7 @@ function saveToSheet() {
 
   const btn = document.getElementById('btn-save');
   btn.disabled = true;
-  btn.textContent = 'Saving…';
+  btn.textContent = isEditMode ? 'Updating…' : 'Saving…';
 
   const year = String(document.getElementById('sel-year').value).trim();
   const rpomeDry = parseFloat(document.getElementById('af-rpome-dry').value.replace(/,/g,''))||0;
@@ -1267,12 +1271,36 @@ function saveToSheet() {
     pomeVal: pomeVal,
     rpomeVal: rpomeVal,
     fadVal: fadVal,
+    pomeMC: parseFloat(document.getElementById('af-pome-mc').value) || 0,
+    rpomeMC: parseFloat(document.getElementById('af-rpome-mc').value) || 0,
+    fadMC: parseFloat(document.getElementById('af-fad-mc').value) || 0,
+    rawCoal:             g('r-coal'),
+    rawBiosolar:         g('r-biosolar'),
+    rawLng:              g('r-lng'),
+    rawNa2co3:           g('r-na2co3'),
+    rawNa2so3:           g('r-na2so3'),
+    rawPac:              g('r-pac'),
+    rawNaoh:             g('r-naoh'),
+    rawCyclohex:         g('r-cyclohex'),
+    rawNhex:             g('r-nhex'),
+    rawIpa:              g('r-ipa'),
+    rawHcl:              g('r-hcl'),
+    rawBe:               g('r-be'),
+    rawH3po4:            g('r-h3po4'),
+    rawElec:             g('r-elec'),
+    rawWater:            g('r-water'),
+    rawSolar:            g('r-solar'),
+    rawMethanol:         g('r-methanol'),
+    rawSodiumMethylate:  g('r-sodium_methylate'),
+    rawCitricAcid:       g('r-citric_acid'),
   });
 
   const payload = JSON.stringify({
     year:         year,
     site:         site,
     calcType:     CALC_MODE,
+    action:       isEditMode ? 'updateGhgRecord' : 'insertGhgRecord',
+    editId:       isEditMode ? editingRecordId : undefined,
     total:        R.total,
     epProduct1:   R.epProduct1,
     epProduct2:   R.epProduct2,
@@ -1325,9 +1353,11 @@ function saveToSheet() {
       throw new Error(result.message || 'Server returned an error');
     }
     fetchHistory();
-    showToast('Saved to Sheet! (ID: ' + result.id + ')', 'success');
+    var wasEdit = isEditMode;
+    showToast((wasEdit ? 'Updated record' : 'Saved to Sheet') + '! (ID: ' + result.id + ')', 'success');
     btn.disabled = false;
     btn.textContent = 'Save Calculation';
+    if (wasEdit) { editingRecordId = null; editingRecordSite = null; updateEditModeBanner(); }
   })
   .catch(function(err) {
     console.error('saveToSheet error:', err);
@@ -1340,11 +1370,158 @@ function saveToSheet() {
       '3. Open DevTools (F12)  Network for details'
     );
     btn.disabled = false;
-    btn.textContent = 'Save Calculation';
+    btn.textContent = editingRecordId ? 'Update Record' : 'Save Calculation';
   });
 }
 
-/* 
+/*
+   EDIT SAVED RECORD
+ */
+function updateEditModeBanner() {
+  var banner = document.getElementById('edit-mode-banner');
+  var info   = document.getElementById('edit-mode-info');
+  var btn    = document.getElementById('btn-save');
+  if (!banner) return;
+  if (editingRecordId) {
+    banner.style.display = 'flex';
+    if (info) info.textContent = editingRecordSite || '';
+    if (btn)  btn.textContent = 'Update Record';
+  } else {
+    banner.style.display = 'none';
+    if (btn)  btn.textContent = 'Save Calculation';
+  }
+}
+
+function cancelEdit() {
+  editingRecordId = null;
+  editingRecordSite = null;
+  updateEditModeBanner();
+  showToast('Edit cancelled', 'success');
+}
+
+function editSavedRecord() {
+  var btn = document.getElementById('btn-edit-saved-record');
+  var recordId = btn ? btn.dataset.recordId : null;
+  if (!recordId) { showToast('No record selected', 'error'); return; }
+  loadRecordForEdit(recordId);
+}
+
+function loadRecordForEdit(recordId) {
+  var record = null;
+  for (var i = 0; i < ghgData.length; i++) {
+    if (String(ghgData[i].id) === String(recordId)) { record = ghgData[i]; break; }
+  }
+  if (!record) { showToast('Record not found', 'error'); return; }
+
+  var p = record.raw || {};
+  var ct = record.calcType || 'refinery';
+
+  // Switch to correct mode if needed, otherwise just reset current form
+  if (CALC_MODE !== ct) {
+    openCalculatorMode(ct);
+  } else {
+    // Clear form items, then repopulate
+    setItemInputMode('all', { force: true });
+  }
+
+  // Restore year and site
+  var yearEl = document.getElementById('sel-year');
+  var siteEl = document.getElementById('sel-site');
+  var period = String(record.period || '').replace(/[A-Za-z]+\s*/g, '').trim() || String(record.period || '');
+  if (yearEl) yearEl.value = period;
+  if (siteEl) siteEl.value = record.site || '';
+
+  // Helper: set value of a form input + visible card input
+  function restoreItem(key, value) {
+    var itemDef = ITEMS[key] || ALL_ITEMS_MAP[key];
+    if (!itemDef) return;
+    var hidden = document.getElementById(itemDef.inputId);
+    if (hidden) hidden.value = value;
+    var dynDiv = document.getElementById('dyn-' + key);
+    if (dynDiv) {
+      var vis = dynDiv.querySelector('input[type="number"]');
+      if (vis) vis.value = value;
+    }
+  }
+
+  // Helper: get raw input from payload (prefers stored raw value, falls back to emission/EF)
+  function getRaw(rawKey, emKey, ef) {
+    var raw = parseFloat(p[rawKey]);
+    if (isFinite(raw) && raw >= 0) return raw;
+    var em = parseFloat(p[emKey]) || 0;
+    return ef > 0 ? em / ef : 0;
+  }
+
+  // Restore production quantities and moisture values
+  if (p.pomeVal != null)  { var el = document.getElementById('af-pome-val');  if (el) el.value = p.pomeVal;  }
+  if (p.rpomeVal != null) { var el = document.getElementById('af-rpome-val'); if (el) el.value = p.rpomeVal; }
+  if (p.fadVal != null)   { var el = document.getElementById('af-fad-val');   if (el) el.value = p.fadVal;   }
+
+  // Restore moisture: prefer stored MC, then derive from dry/wet ratio
+  if (p.pomeMC != null && isFinite(p.pomeMC)) {
+    var el = document.getElementById('af-pome-mc'); if (el) el.value = p.pomeMC;
+  } else if (p.rpomeFF != null && p.rpomeDry != null && p.pomeVal > 0) {
+    var pomeDryEst = parseFloat(p.rpomeFF) * parseFloat(p.rpomeDry);
+    var mc = (1 - pomeDryEst / parseFloat(p.pomeVal)) * 100;
+    if (mc >= 0 && mc <= 99) { var el = document.getElementById('af-pome-mc'); if (el) el.value = mc.toFixed(4); }
+  }
+  if (p.rpomeMC != null && isFinite(p.rpomeMC)) {
+    var el = document.getElementById('af-rpome-mc'); if (el) el.value = p.rpomeMC;
+  } else if (p.rpomeDry != null && p.rpomeVal > 0) {
+    var mc = (1 - parseFloat(p.rpomeDry) / parseFloat(p.rpomeVal)) * 100;
+    if (mc >= 0 && mc <= 99) { var el = document.getElementById('af-rpome-mc'); if (el) el.value = mc.toFixed(4); }
+  }
+  if (p.fadMC != null && isFinite(p.fadMC)) {
+    var el = document.getElementById('af-fad-mc'); if (el) el.value = p.fadMC;
+  } else if (p.fadDry != null && p.fadVal > 0) {
+    var mc = (1 - parseFloat(p.fadDry) / parseFloat(p.fadVal)) * 100;
+    if (mc >= 0 && mc <= 99) { var el = document.getElementById('af-fad-mc'); if (el) el.value = mc.toFixed(4); }
+  }
+
+  // Restore emission source raw inputs
+  if (ct === 'ggl') {
+    var gglBioEF = GGL_PROCESSING.biosolar_liter_to_kg * GGL_PROCESSING.biosolar_ef;
+    restoreItem('biosolar', getRaw('rawBiosolar', 'biosolar', gglBioEF));
+    restoreItem('elec',     getRaw('rawElec',     'elec',     GGL_PROCESSING.elec_ef));
+  } else {
+    restoreItem('coal',     getRaw('rawCoal',     'coal',     EF.coal));
+    restoreItem('biosolar', getRaw('rawBiosolar', 'biosolar', EF.biosolar));
+    restoreItem('lng',      getRaw('rawLng',      'lng',      EF.lng));
+    restoreItem('na2co3',   getRaw('rawNa2co3',   'na2co3',   EF.na2co3));
+    restoreItem('na2so3',   getRaw('rawNa2so3',   'na2so3',   EF.na2so3));
+    restoreItem('pac',      getRaw('rawPac',      'pac',      EF.pac));
+    restoreItem('naoh',     getRaw('rawNaoh',     'naoh',     EF.naoh));
+    restoreItem('cyclohex', getRaw('rawCyclohex', 'cyclohex', EF.cyclohex));
+    restoreItem('nhex',     getRaw('rawNhex',     'nhex',     EF.nhex));
+    restoreItem('ipa',      getRaw('rawIpa',      'ipa',      EF.ipa));
+    restoreItem('hcl',      getRaw('rawHcl',      'hcl',      EF.hcl));
+    restoreItem('be',       getRaw('rawBe',       'be',       EF.be));
+    restoreItem('h3po4',    getRaw('rawH3po4',    'h3po4',    EF.h3po4));
+    restoreItem('elec',     getRaw('rawElec',     'elec',     EF.elec));
+    restoreItem('water',    getRaw('rawWater',    'water',    EF.water));
+    if (ct === 'biodiesel') {
+      restoreItem('methanol',         getRaw('rawMethanol',        'methanol',         EF.methanol));
+      restoreItem('sodium_methylate', getRaw('rawSodiumMethylate', 'sodiumMethylate',  EF.sodium_methylate));
+      restoreItem('citric_acid',      getRaw('rawCitricAcid',      'citricAcid',       EF.citric_acid));
+    }
+  }
+
+  // Recompute AF/FF and final results
+  calculateAF();
+
+  // Set edit mode state and update UI
+  editingRecordId = recordId;
+  editingRecordSite = record.site;
+  updateEditModeBanner();
+
+  // Switch to Processing tab
+  var t0 = document.querySelector('#calc-main-tabs .tab');
+  if (t0) switchTab('input', t0);
+
+  showToast('Loaded "' + record.site + '" — modify and click Update Record', 'success');
+}
+
+/*
    HISTORY / RESET / UTILITIES
  */
 function renderHistory() {
@@ -1397,7 +1574,10 @@ function renderHistory() {
       + '<td class="c-purple">'                      + fmt(h.epFadAlloc, 2)   + '</td>'
       + '<td style="font-size:11px">'                + epMjDisp               + '</td>'
       + '<td style="color:var(--text-muted);font-size:11px">'  + h.savedAt              + '</td>'
-      + '<td><button class="btn btn-outline btn-sm" onclick="delH(\'' + h.id + '\')"></button></td>'
+      + '<td style="white-space:nowrap">'
+      + '<button class="btn btn-outline btn-sm" onclick="loadRecordForEdit(\'' + h.id + '\')" title="Load record for editing" style="margin-right:4px">&#9998; Edit</button>'
+      + '<button class="btn btn-outline btn-sm" onclick="delH(\'' + h.id + '\')" title="Delete"></button>'
+      + '</td>'
       + '</tr>';
   }
   tb.innerHTML = rows;
@@ -1630,9 +1810,11 @@ function applyResultFilter() {
   var label = document.getElementById('result-site-label');
   var badge = document.getElementById('result-filter-badge');
 
+  var editBtn = document.getElementById('btn-edit-saved-record');
   if (site === 'all') {
     if (label) label.textContent = '';
     if (badge) badge.style.display = 'none';
+    if (editBtn) editBtn.style.display = 'none';
     calculate();
     renderFormulas();
     return;
@@ -1648,6 +1830,7 @@ function applyResultFilter() {
   currentFilterYear = String(record.period).replace(/[A-Za-z]+\s*/g,'').trim() || record.period;
   if (label) label.textContent = site + ' · ' + currentFilterYear;
   if (badge) { badge.textContent = 'Showing saved record'; badge.style.display = ''; }
+  if (editBtn) { editBtn.dataset.recordId = record.id; editBtn.style.display = ''; }
 
   renderDetailRows(record.detail, record);
   renderFormulasSaved(record);
@@ -2135,6 +2318,9 @@ function resetForm(){
   });
   R = {};
   calculate();
+  editingRecordId = null;
+  editingRecordSite = null;
+  updateEditModeBanner();
   showToast('Reset','success');
 }
 

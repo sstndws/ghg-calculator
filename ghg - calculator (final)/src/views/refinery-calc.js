@@ -28,6 +28,10 @@ export const refineryCalcView = `<div class="page" id="calc-app-wrap">
 <div class="main">
 
   <div class="page active" id="page-input">
+    <div id="edit-mode-banner" style="display:none;background:#fef9ec;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px;margin-bottom:12px;align-items:center;gap:8px">
+      <span style="font-size:12px;color:#b45309">&#9998; Editing: <strong id="edit-mode-info" style="color:#92400e"></strong></span>
+      <button class="btn btn-outline btn-sm" onclick="cancelEdit()" style="margin-left:auto;font-size:11px;padding:3px 8px">Cancel</button>
+    </div>
     <div class="period-bar">
       <label>Year</label>
       <input type="number" id="sel-year" value="2024" min="2020" max="2035" style="width:80px">
@@ -241,6 +245,7 @@ export const refineryCalcView = `<div class="page" id="calc-app-wrap">
           <option value="all">All Sites (current input)</option>
         </select>
         <span id="result-filter-badge" class="ui-caption" style="display:none"></span>
+        <button class="btn btn-outline btn-sm" id="btn-edit-saved-record" style="display:none" onclick="editSavedRecord()">&#9998; Edit Record</button>
       </div>
       <div class="tb-right">
         <button class="btn btn-outline btn-sm" id="btn-toggle-formulas" onclick="toggleFormulas()">Show formulas</button>
@@ -309,7 +314,7 @@ export const refineryCalcView = `<div class="page" id="calc-app-wrap">
     <div class="card">
       <div style="overflow-x:auto">
         <table class="htable">
-          <thead><tr><th>Year</th><th>Type</th><th>Site</th><th>Total Ep</th><th>Ep P1</th><th>Ep P2</th><th>Alloc P1</th><th>Alloc P2</th><th>Ep MJ</th><th>Saved</th><th></th></tr></thead>
+          <thead><tr><th>Year</th><th>Type</th><th>Site</th><th>Total Ep</th><th>Ep P1</th><th>Ep P2</th><th>Alloc P1</th><th>Alloc P2</th><th>Ep MJ</th><th>Saved</th><th style="min-width:80px">Action</th></tr></thead>
           <tbody id="history-tbody"><tr><td colspan="11" class="empty">No saved calculations yet</td></tr></tbody>
         </table>
       </div>
